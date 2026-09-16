@@ -48,6 +48,14 @@
 #define TK_GITHUB_NOTIFICATIONS_ENABLED 0
 #endif
 
+/* Codex is optional. A Claude-only panel drops the two Codex views from the
+ * rotation, the CODEX row from the value screen, and any Codex-provider Needs
+ * You prompt. Defaults ON so upstream behaviour is unchanged; set 0 in
+ * secrets.h for a Claude-only build. */
+#ifndef TK_CODEX_ENABLED
+#define TK_CODEX_ENABLED 1
+#endif
+
 /* Sound is a third, independent opt-in. It still requires a platform backend
  * that has passed the display-DMA and physical-speaker gates. */
 #ifndef TK_GITHUB_SOUND_ENABLED
@@ -65,6 +73,10 @@
 
 #if TK_GITHUB_SOUND_ENABLED != 0 && TK_GITHUB_SOUND_ENABLED != 1
 #error "TK_GITHUB_SOUND_ENABLED must be 0 or 1"
+#endif
+
+#if TK_CODEX_ENABLED != 0 && TK_CODEX_ENABLED != 1
+#error "TK_CODEX_ENABLED must be 0 or 1"
 #endif
 
 #endif

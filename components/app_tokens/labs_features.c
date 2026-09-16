@@ -53,11 +53,15 @@ const char *tk_labs_name(int feature) {
   return valid(feature) ? names[feature] : "";
 }
 static bool view_enabled(int view) {
-  if (view >= 0 && view <= VIEW_CODEX_WEEKLY) return true;
+  /* The two Codex views leave the rotation entirely on a Claude-only build;
+   * every count and column position below is derived from this one answer. */
+  if (view == VIEW_CODEX_WEEKLY) return TK_CODEX_ENABLED;
+  if (view >= 0 && view < VIEW_CODEX_WEEKLY) return true;
   switch (view) {
     case VIEW_BURN_RATE: return tk_labs_active(TK_LABS_BURN_RATE);
-    case VIEW_TRACKER_CLAUDE:
-    case VIEW_TRACKER_CODEX: return tk_labs_active(TK_LABS_TRACKER);
+    case VIEW_TRACKER_CODEX:
+      return TK_CODEX_ENABLED && tk_labs_active(TK_LABS_TRACKER);
+    case VIEW_TRACKER_CLAUDE: return tk_labs_active(TK_LABS_TRACKER);
     case VIEW_GITHUB: return tk_labs_active(TK_LABS_GITHUB);
     case VIEW_VALUE: return tk_labs_active(TK_LABS_VALUE);
     default: return false;

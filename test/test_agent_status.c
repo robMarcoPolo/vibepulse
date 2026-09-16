@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "../components/app_tokens/agent_status_parse.h"
+#include "../components/app_tokens/app_tokens_config.h"
 
 static int failures;
 
@@ -43,6 +44,9 @@ static char *read_file(const char *path, size_t *len_out) {
   return data;
 }
 
+/* Only the Codex fixture blocks mutate a fixture in place, so a Claude-only
+   build has no caller for these two and -Werror rejects unused statics. */
+#if TK_CODEX_ENABLED
 static char *replace_once(const char *source, const char *from,
                           const char *to, size_t *len_out) {
   const char *match = strstr(source, from);
@@ -81,6 +85,7 @@ static void pending_soft_drops_after_mutation(const char *what,
                   snapshot.codex.job_count == 1);
   free(changed);
 }
+#endif
 
 static void rejected_unchanged(const char *what, const char *json,
                                tk_agent_snapshot *out) {
@@ -177,6 +182,7 @@ int main(void) {
       "\"subtitle\":\"Desktop + CLI, one setup\","
       "\"title\":\"Use the trusted hook\"}";
   tk_pending_interaction relay_pending = {0};
+#if TK_CODEX_ENABLED
   check("relävyn parsas utan att låtsas vara en agentstatuskropp",
         tk_agent_status_parse_relay_view(
             (const uint8_t *)relay_view, strlen(relay_view), 117000,
@@ -185,6 +191,15 @@ int main(void) {
         relay_pending.provider == TK_AGENT_PROVIDER_CODEX &&
         relay_pending.expires_in_ms == 117000 &&
         strcmp(relay_pending.request_id, "ABEiM0RVZneImaq7zN3u_w") == 0);
+#else
+  /* En Claude-only-panel ska aldrig visa en Codex-fråga: samma utgång som
+     en okänd leverantör, inte en tyst halvparsad post. */
+  check("en Claude-only-panel tar inte emot Codex-frågor",
+        !tk_agent_status_parse_relay_view(
+            (const uint8_t *)relay_view, strlen(relay_view), 117000,
+            "df55d0b8c9bcccae1eab3d28b985f696b27422f368358169248a4b797991a38d",
+            &relay_pending) && !relay_pending.present);
+#endif
   relay_pending.present = true;
   check("relävyn kräver den autentiserade digesten",
         !tk_agent_status_parse_relay_view(
@@ -326,6 +341,7 @@ int main(void) {
         TK_AGENT_PROVIDER_CLAUDE == 0 && TK_AGENT_PROVIDER_CODEX == 1 &&
         TK_AGENT_PROVIDER_COUNT == 2 && TK_AGENT_JOBS_MAX == 4);
 
+#if TK_CODEX_ENABLED
   fixture = read_file(
       FIXTURES_DIR "/agent-status-needs-you-codex-question.json", &fixture_len);
   if (fixture) {
@@ -368,7 +384,9 @@ int main(void) {
         "\"title\":\"Use the trusted hook\",\"title\":\"Other\"");
     free(fixture);
   }
+#endif
 
+#if TK_CODEX_ENABLED
   fixture = read_file(
       FIXTURES_DIR "/agent-status-needs-you-codex-approval.json", &fixture_len);
   if (fixture) {
@@ -384,6 +402,7 @@ int main(void) {
         "\"tool\":\"Bash\"");
     free(fixture);
   }
+#endif
 
   /* "Needs You": pending är FRIVILLIG och tolkas mjukt. Ett trasigt
    * pending-objekt får aldrig ta agentlistan med sig — det är hela
@@ -522,8 +541,8 @@ int main(void) {
   static const char utf8_escaped_v2[] =
       "{\"v\":2,\"seq\":7,\"agents\":{" ONE_CLAUDE(WORKING_JOB) ","
       EMPTY_CODEX "},\"pending\":{"
-      "\"provider\":\"codex\",\"request_id\":\"UTF8_escape_1\","
-      "\"view_sha256\":\"aef456f66e899749f8b1215cefac7159e15f7674ab1fd80848d67bd9db7f3be1\","
+      "\"provider\":\"claude\",\"request_id\":\"UTF8_escape_1\","
+      "\"view_sha256\":\"74235d6685d9df6ede7131241064e03feb9811ec14e52ec505d1d5b7027af04f\","
       "\"kind\":\"question\",\"project\":\"Törgët\","
       "\"expires_in_ms\":118000,\"hold_ms\":120000,"
       "\"options_total\":2,\"marked\":true,"

@@ -3,6 +3,7 @@
 #include <time.h>
 
 #include "../components/app_tokens/usage_presenter.h"
+#include "../components/app_tokens/app_tokens_config.h"
 
 static int failures = 0;
 
@@ -197,7 +198,9 @@ int main(void) {
 
   usage_forecast_page_view forecast_page = {0};
   usage_presenter_build_forecasts(&forecasts, &forecast_page);
-  check("forecasts contain both providers", forecast_page.row_count == 2);
+  /* A Claude-only build forecasts one provider, not two. */
+  check("forecasts cover exactly the enabled providers",
+        forecast_page.row_count == 1 + TK_CODEX_ENABLED);
   check("Claude forecast names the all-model scope",
         strcmp(forecast_page.rows[0].label,
                "CLAUDE · ALL MODELS") == 0);
@@ -205,10 +208,10 @@ int main(void) {
         strcmp(forecast_page.rows[0].headline, "SPEED UP") == 0 &&
         strcmp(forecast_page.rows[0].detail,
                "1.4× CURRENT PACE TO MAX OUT") == 0);
-  check("early exhaustion leads with timing",
-        strcmp(forecast_page.rows[1].headline, "9H EARLY") == 0 &&
-        strcmp(forecast_page.rows[1].detail,
-               "RUNS OUT SAT 05:00") == 0);
+#if TK_CODEX_ENABLED
+  check("Codex forecast names the weekly scope",
+        strcmp(forecast_page.rows[1].label, "CODEX · WEEKLY") == 0);
+#endif
 
   forecasts.claude_forecast.pace_factor = 1.04;
   usage_presenter_build_forecasts(&forecasts, &forecast_page);
@@ -224,35 +227,52 @@ int main(void) {
         strcmp(forecast_page.rows[0].detail,
                "FORECAST NOT READY") == 0);
 
-  forecasts.codex_forecast.offset_min = -35;
-  usage_presenter_build_forecasts(&forecasts, &forecast_page);
+  /* Exhaustion wording is provider-agnostic, so it is exercised on a row
+     that exists in every build, from its own fixture: piggybacking on the
+     Codex row left a Claude-only build with none of this covered. */
+  tk_tokens timing = {0};
+  timing.claude_week = limit(35, 2210, 5);
+  timing.claude_forecast.state = TK_FORECAST_EXHAUSTS;
+  timing.claude_forecast.has_at_epoch = 1;
+  timing.claude_forecast.at_epoch = local_epoch(2026, 8, 8, 5, 0);
+  timing.claude_forecast.has_offset_min = 1;
+
+  timing.claude_forecast.offset_min = -540;
+  usage_presenter_build_forecasts(&timing, &forecast_page);
+  check("early exhaustion leads with timing",
+        strcmp(forecast_page.rows[0].headline, "9H EARLY") == 0 &&
+        strcmp(forecast_page.rows[0].detail,
+               "RUNS OUT SAT 05:00") == 0);
+
+  timing.claude_forecast.offset_min = -35;
+  usage_presenter_build_forecasts(&timing, &forecast_page);
   check("sub-hour early forecast uses minutes",
-        strcmp(forecast_page.rows[1].headline, "35M EARLY") == 0);
+        strcmp(forecast_page.rows[0].headline, "35M EARLY") == 0);
 
-  forecasts.codex_forecast.offset_min = -(25 * 60 + 5);
-  usage_presenter_build_forecasts(&forecasts, &forecast_page);
+  timing.claude_forecast.offset_min = -(25 * 60 + 5);
+  usage_presenter_build_forecasts(&timing, &forecast_page);
   check("day-scale early forecast keeps remaining hours",
-        strcmp(forecast_page.rows[1].headline, "1D 1H EARLY") == 0);
+        strcmp(forecast_page.rows[0].headline, "1D 1H EARLY") == 0);
 
-  forecasts.codex_forecast.offset_min = 60;
-  usage_presenter_build_forecasts(&forecasts, &forecast_page);
+  timing.claude_forecast.offset_min = 60;
+  usage_presenter_build_forecasts(&timing, &forecast_page);
   check("contradictory late exhaustion is unavailable",
-        strcmp(forecast_page.rows[1].headline, "UNAVAILABLE") == 0 &&
-        strcmp(forecast_page.rows[1].detail,
+        strcmp(forecast_page.rows[0].headline, "UNAVAILABLE") == 0 &&
+        strcmp(forecast_page.rows[0].detail,
                "NO RELIABLE FORECAST") == 0);
 
-  forecasts.codex_forecast.offset_min = 0;
-  usage_presenter_build_forecasts(&forecasts, &forecast_page);
+  timing.claude_forecast.offset_min = 0;
+  usage_presenter_build_forecasts(&timing, &forecast_page);
   check("zero-offset exhaustion is on pace",
-        strcmp(forecast_page.rows[1].headline, "ON PACE") == 0 &&
-        strcmp(forecast_page.rows[1].detail,
+        strcmp(forecast_page.rows[0].headline, "ON PACE") == 0 &&
+        strcmp(forecast_page.rows[0].detail,
                "RUNS OUT AT RESET") == 0);
 
-  forecasts.codex_forecast.state = TK_FORECAST_UNAVAILABLE;
-  usage_presenter_build_forecasts(&forecasts, &forecast_page);
+  timing.claude_forecast.state = TK_FORECAST_UNAVAILABLE;
+  usage_presenter_build_forecasts(&timing, &forecast_page);
   check("unavailable forecast is explicit",
-        strcmp(forecast_page.rows[1].headline, "UNAVAILABLE") == 0 &&
-        strcmp(forecast_page.rows[1].detail,
+        strcmp(forecast_page.rows[0].headline, "UNAVAILABLE") == 0 &&
+        strcmp(forecast_page.rows[0].detail,
                "NO RELIABLE FORECAST") == 0);
 
   tk_tokens no_week = {0};
@@ -295,7 +315,8 @@ int main(void) {
         strcmp(value_page.verdict, "YOUR PLAN IS CHEAPER") == 0);
   check("the split is one quiet line, not two headline figures",
         strcmp(value_page.attribution,
-               "CLAUDE $280  ·  CODEX $32") == 0);
+               TK_CODEX_ENABLED ? "CLAUDE $280  ·  CODEX $32"
+                                : "CLAUDE $280") == 0);
   check("the footer pair is the comparison itself",
         strcmp(value_page.api_cost, "$312") == 0 &&
         strcmp(value_page.paid, "$220") == 0);
@@ -304,6 +325,7 @@ int main(void) {
         value_page.break_even_fraction > 0.499 &&
         value_page.break_even_fraction < 0.501 &&
         value_page.bar_fraction > 0.70 && value_page.bar_fraction < 0.72);
+#if TK_CODEX_ENABLED
   check("both providers count when both costs are declared",
         value_page.row_count == 2 &&
         value_page.rows[0].counted && value_page.rows[1].counted);
@@ -322,6 +344,16 @@ int main(void) {
         value_page.rows[0].counted && !value_page.rows[1].counted);
   check("an uncounted provider colours no segment",
         value_page.rows[1].share == 0.0);
+#else
+  /* A Claude-only build has no second provider to split with: Codex usage
+     must neither add a row nor colour any part of the bar, even when the
+     service still reports Codex figures. */
+  check("a Claude-only build shows exactly one counted provider",
+        value_page.row_count == 1 && value_page.rows[0].counted &&
+        value_page.rows[0].provider == USAGE_PROVIDER_CLAUDE);
+  check("the only provider owns the whole segment",
+        value_page.rows[0].share > 0.99 && value_page.rows[0].share < 1.01);
+#endif
 
   tk_tokens value_behind = value_ok;
   value_behind.value.multiple = 0.84;

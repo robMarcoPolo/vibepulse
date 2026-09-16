@@ -70,13 +70,16 @@ cc -std=c11 -Wall -Wextra -Werror -O1 \
 # Both the legacy header fallback and fresh-install template seed.
 for labs_default in 0 1; do
   for github_default in 0 1 2 3; do
-    cc -std=c11 -Wall -Wextra -Werror -O1 \
-      -DTK_LABS_ANALYTICS_DEFAULT=$labs_default \
-      -DTK_GITHUB_SCREEN_ENABLED=$((github_default & 1)) \
-      -DTK_GITHUB_NOTIFICATIONS_ENABLED=$(((github_default >> 1) & 1)) \
-      ../components/app_tokens/labs_features.c test_labs_features.c \
-      -o /tmp/torget-labs-test
-    /tmp/torget-labs-test
+    for codex_enabled in 0 1; do
+      cc -std=c11 -Wall -Wextra -Werror -O1 \
+        -DTK_LABS_ANALYTICS_DEFAULT=$labs_default \
+        -DTK_GITHUB_SCREEN_ENABLED=$((github_default & 1)) \
+        -DTK_GITHUB_NOTIFICATIONS_ENABLED=$(((github_default >> 1) & 1)) \
+        -DTK_CODEX_ENABLED=$codex_enabled \
+        ../components/app_tokens/labs_features.c test_labs_features.c \
+        -o /tmp/torget-labs-test
+      /tmp/torget-labs-test
+    done
   done
 done
 
@@ -106,21 +109,28 @@ cc -std=c11 -Wall -Wextra -Werror -O1 \
   -o /tmp/torget-max-tracker-presenter-test
 /tmp/torget-max-tracker-presenter-test
 
-cc -std=c11 -Wall -Wextra -Werror -O1 \
-  ../components/app_tokens/usage_presenter.c \
-  test_usage_presenter.c \
-  -lm \
-  -o /tmp/torget-usage-presenter-test
-/tmp/torget-usage-presenter-test
+# Both provider sets: a Claude-only build must lose the CODEX row, not the page.
+for codex_enabled in 0 1; do
+  cc -std=c11 -Wall -Wextra -Werror -O1 \
+    -DTK_CODEX_ENABLED=$codex_enabled \
+    ../components/app_tokens/usage_presenter.c \
+    test_usage_presenter.c \
+    -lm \
+    -o /tmp/torget-usage-presenter-test
+  /tmp/torget-usage-presenter-test
+done
 
-cc -std=c11 -Wall -Wextra -Werror -O1 \
-  -DFIXTURES_DIR="\"$(cd ../sim-fixtures && pwd)\"" \
-  ../components/app_tokens/agent_status_parse.c \
-  ../components/app_tokens/needs_you_send_policy.c \
-  test_agent_status.c /tmp/torget-cjson.o \
-  -lm \
-  -o /tmp/torget-agent-status-test
-/tmp/torget-agent-status-test
+for codex_enabled in 0 1; do
+  cc -std=c11 -Wall -Wextra -Werror -O1 \
+    -DTK_CODEX_ENABLED=$codex_enabled \
+    -DFIXTURES_DIR="\"$(cd ../sim-fixtures && pwd)\"" \
+    ../components/app_tokens/agent_status_parse.c \
+    ../components/app_tokens/needs_you_send_policy.c \
+    test_agent_status.c /tmp/torget-cjson.o \
+    -lm \
+    -o /tmp/torget-agent-status-test
+  /tmp/torget-agent-status-test
+done
 
 cc -std=c11 -Wall -Wextra -Werror -O1 \
   ../components/app_tokens/needs_you_policy.c \

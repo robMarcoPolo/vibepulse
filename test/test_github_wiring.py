@@ -61,7 +61,13 @@ class GitHubWiringTests(unittest.TestCase):
         self.assertIn("for (unsigned mask = 0; mask <= TK_LABS_ALL; mask++)", test)
         self.assertIn("assert(at == pos++);", test)
         self.assertIn("assert(tk_labs_next_view(previous, 1) == view);", test)
-        self.assertIn("assert(tk_labs_view_position(VIEW_VALUE) == 3);", test)
+        self.assertIn(
+            "assert(tk_labs_view_position(VIEW_VALUE) == 2 + TK_CODEX_ENABLED);",
+            test)
+        # The same argument applies to the provider toggle: a Claude-only
+        # build changes which views exist, so CI must compile both.
+        self.assertIn("for codex_enabled in 0 1; do", run)
+        self.assertIn("-DTK_CODEX_ENABLED=$codex_enabled", run)
 
     def test_popup_is_app_local_static_and_below_agent_attention(self):
         ui = read("components/app_tokens/usage_screen.c")

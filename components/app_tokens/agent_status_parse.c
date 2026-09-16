@@ -1,4 +1,5 @@
 #include "agent_status_parse.h"
+#include "app_tokens_config.h"
 #include "interaction_relay_crypto.h"
 #include "needs_you_send_policy.h"
 
@@ -766,9 +767,14 @@ static void parse_pending(const char *json, size_t len, const cJSON *root,
   if (has_provider) {
     if (strcmp(provider, "claude") == 0) {
       out->provider = TK_AGENT_PROVIDER_CLAUDE;
+#if TK_CODEX_ENABLED
     } else if (strcmp(provider, "codex") == 0) {
       out->provider = TK_AGENT_PROVIDER_CODEX;
+#endif
     } else {
+      /* A Claude-only build treats "codex" exactly like any unsupported
+       * provider: the item is dropped here, so no Codex question ever
+       * reaches the takeover, the queue or the answer path. */
       return;
     }
   } else {

@@ -1,4 +1,5 @@
 #include "usage_presenter.h"
+#include "app_tokens_config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -425,18 +426,22 @@ void usage_presenter_build_value(const tk_tokens *tokens,
       &out->rows[out->row_count], USAGE_PROVIDER_CLAUDE, "CLAUDE",
       value->has_claude_usd, value->claude_usd,
       value->has_claude_plan_usd, value->claude_plan_usd);
+#if TK_CODEX_ENABLED
   out->row_count += build_value_row(
       &out->rows[out->row_count], USAGE_PROVIDER_CODEX, "CODEX",
       value->has_codex_usd, value->codex_usd,
       value->has_codex_plan_usd, value->codex_plan_usd);
+#endif
 
   /* Segment the drawn fill by the COUNTED providers only -- a provider left
    * out of the ratio must not colour a bar that represents it. */
   double counted_total = 0;
   if (value->has_claude_usd && value->has_claude_plan_usd)
     counted_total += value->claude_usd;
+#if TK_CODEX_ENABLED
   if (value->has_codex_usd && value->has_codex_plan_usd)
     counted_total += value->codex_usd;
+#endif
   for (int i = 0; i < out->row_count; i++) {
     if (!out->rows[i].counted || counted_total <= 0) continue;
     double own = out->rows[i].provider == USAGE_PROVIDER_CLAUDE
@@ -460,8 +465,11 @@ void usage_presenter_build_forecasts(const tk_tokens *tokens,
   build_forecast_row(&out->rows[0], USAGE_PROVIDER_CLAUDE,
                      "CLAUDE · ALL MODELS", &tokens->claude_week,
                      &tokens->claude_forecast);
+  out->row_count = 1;
+#if TK_CODEX_ENABLED
   build_forecast_row(&out->rows[1], USAGE_PROVIDER_CODEX,
                      "CODEX · WEEKLY", &tokens->codex_week,
                      &tokens->codex_forecast);
   out->row_count = 2;
+#endif
 }

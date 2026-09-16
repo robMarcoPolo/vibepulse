@@ -92,6 +92,13 @@ CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
 # rot-CMakeLists + main/lv_psram_pool.c). Rymligt eftersom PSRAM har 6,4 MB;
 # ger Needs You-takeovern + GitHub-sidan + alla appar gott om objektutrymme
 # utan att röra det interna heapet där panelflushens DMA-buffert bor.
+# LVGL 9.6 döpte om poolknappen: LV_MEM_SIZE_KILOBYTES är DEPRECATED och
+# läses inte längre, medan LV_MEM_SIZE (BYTES) styr på riktigt. Den gamla
+# raden ensam lät poolen falla tillbaka på LVGL:s egen 64 KiB-default —
+# panelen wedgade i lv_obj_class_create_obj's OOM-assert när WiFi-setupens
+# 196x196 QR-canvas skulle ritas (mätt på hårdvara 2026-09-16). Båda sätts
+# till samma 256 KiB så att bygget är rätt oavsett vilken LVGL 9.x som löses.
+CONFIG_LV_MEM_SIZE=262144
 CONFIG_LV_MEM_SIZE_KILOBYTES=256
 
 # --- Vibbe (app_buddy) --- USB-ljudkortsläget. Parametrarna bor i Kconfig,

@@ -70,7 +70,7 @@ project(torget)
 # out-of-memory assert while rendering the 164 px quota glyphs. Refuse to
 # produce that image instead of discovering the mismatch on the glass.
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/torget_lvgl_memory_guard.cmake")
-torget_require_lvgl_pool("${CONFIG_LV_MEM_SIZE_KILOBYTES}")
+torget_require_lvgl_pool("${CONFIG_LV_MEM_SIZE}")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/torget_lvgl_qrcode_guard.cmake")
 torget_require_lvgl_qrcode("${CONFIG_LV_USE_QRCODE}")
 # Crash and log evidence (OBS-02/03/28/35): an old generated sdkconfig would

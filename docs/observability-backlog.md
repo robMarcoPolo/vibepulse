@@ -564,6 +564,79 @@ that opened on its own.
 
 ---
 
+### OBS-41 · A wedged UI task freezes the glass, and the watchdog structurally cannot catch it
+`firmware · M · open` — observed live 2026-09-16 on the physical panel while
+chasing an unrelated OTA push.
+
+**Symptom:** the panel sat on the UPDATE READY takeover with touch dead and
+the overlay unable to re-render, while ICMP and the tokenserver polls
+continued throughout. FreeRTOS and lwIP were healthy; the LVGL/UI task was
+not. Recovery required a power cycle. The takeover makes this worse than a
+plain freeze: it suppresses the KEY3 hold by design
+(`button_arbitration.c:73`) and its only answers are the two pills, so a UI
+stall *during a notice* removes the menu, WIFI and UPDATE entirely. A short
+press still reaches `next_app`, but it switches apps behind an overlay that
+never repaints, so the panel looks equally dead either way.
+
+**Evidence:** `ping` 4/4 (40–264 ms) and three distinct ESTABLISHED
+connections from the panel to `:8737` in a 45 s sample, taken while the
+glass was frozen. Revoking the announcement (`otaAvailableVersion` → `null`)
+demonstrably reached the device and changed nothing on the glass, which
+places the fault after the poll and inside the UI path:
+`torget_ota_ui_set()` and `torget_ota_ui_set_version()` both bail out on a
+failed `torget_ui_try_lock()`, so a held UI lock is indistinguishable from
+"no update to show". No serial capture — the freeze predates the coredump
+change, and a spin-freeze writes no dump in any case.
+
+**Fix:** two parts; the first is the P1 half and stands on its own.
+
+1. **Make the stall produce evidence.** No task of ours subscribes to the
+   task watchdog (OBS-17), so a wedged UI task starves nothing, trips
+   nothing and reboots nothing — this failure is silent by construction, and
+   the only reason it was caught at all is that someone was standing in
+   front of the panel. Subscribe the LVGL/UI task to the WDT so a stall
+   emits a serial line naming it. Keep the watchdog warn-only as
+   `docs/observability.md` promises: the goal here is a log line, not a
+   reboot policy change.
+2. **Find the stall itself.** Prime suspect is the NOTICE render path, which
+   is the one state that draws the announced version inside the ring
+   (`ota_ui.c`, `TG_OTA_UI_NOTICE`) — the same allocation class as the
+   2026-08-19 LVGL pool freeze in `lessons.md`. This is a hypothesis, not a
+   finding: it needs a reproduction on USB with `idf.py monitor` before any
+   code change. Note the announced string in this instance was a 24-char
+   `-dirty` version, longer than any release version would be.
+
+---
+
+### OBS-42 · The deep-JSON bound is an interpreter side effect, and it is already gone on Python 3.14
+`tokenserver · S · open` — found 2026-09-16 when the host gate failed on a
+Homebrew-default interpreter.
+
+**Symptom:** `_read_json_body` rejects adversarial input by catching
+`RecursionError` around `json.loads`, and
+`test_deep_and_huge_integer_json_are_bounded_failures` asserts the rejection.
+On Python 3.14 `json.loads` parses 10 000-deep nesting without raising, so the
+call returns the nested object instead of `None` and the handler processes it
+as a valid body. The test fails — correctly. The guard is gone, not the test.
+
+**Evidence:** `python3.14 -c "json.loads('['*20001 + ']'*20001)"` succeeds;
+the same expression raises `RecursionError` on 3.11/3.12. The full gate is
+green on 3.11.16 (927 tests) and fails only this one case on 3.14.7. CI pins
+`python-version: "3.12"` in all three jobs (`ci.yml:38,107,181`), so CI cannot
+observe this — and the tokenserver is a host service users run on whatever
+interpreter they have, where `python3` is already 3.14 on a current Homebrew.
+
+**Fix:** stop depending on the interpreter for a security bound. Parse with an
+explicit depth/complexity limit — scan the body for nesting depth before
+`json.loads`, or reject bodies whose bracket depth exceeds a small constant —
+and keep the `RecursionError` catch as the backstop it was meant to be
+(`tokenserver.py:3094` already calls the surrounding check "defence in depth").
+Separately: the 64 KiB body cap bounds the blast radius today, so this is a
+lost guard rather than an open hole — worth fixing before anything downstream
+starts walking parsed bodies recursively.
+
+---
+
 ## P2 — stop making it worse
 
 ### OBS-13 · No backoff anywhere in the firmware

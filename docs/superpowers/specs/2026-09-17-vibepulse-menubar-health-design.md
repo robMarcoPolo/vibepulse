@@ -96,20 +96,45 @@ and honestly degrades. Treating every non-`ok` probe as amber would light
 the indicator during normal operation — the same alert-fatigue failure
 the colour rules below exist to avoid.
 
+**4. Only one instance.** Two signals, because neither alone suffices.
+
+The tokenserver holds a machine-wide `flock` on `claude-probe.lock` so
+at most one instance ever reaches `api.anthropic.com`; an instance that
+loses that race publishes `probe_held_by_other_instance`
+(`tokenserver.py:1539`). That status is free — already on the wire — and
+is definitive proof of a second instance. It is also one-sided: it is
+visible only from the instance that *lost* the lock, so the one being
+queried may be the holder and look entirely normal.
+
+A `pgrep -f "tokenserver\.py"` count closes that gap, and is the only
+check here that sees an instance started on a different port. Two or
+more matching processes is DEGRADED.
+
+A second instance on the *same* port does not persist: a bind failure is
+not handled specially, so `Address already in use` propagates and the
+process exits. Under `KeepAlive` with `ThrottleInterval 30` that becomes
+a respawn every 30 seconds behind whoever owns the port. Detecting that
+loop would mean remembering the previous `runs` counter, and this design
+carries no state between runs; the two signals above are what stays
+stateless.
+
 ## States
 
 | State | Glyph | Condition |
 |---|---|---|
 | DOWN | `○` | no response, timeout, non-200, or unparseable body |
-| DEGRADED | `◐` | responds, but fingerprint mismatches, or data is not flowing |
+| DEGRADED | `◐` | responds, but fingerprint mismatches, data is not flowing, or more than one instance is running |
 | OK | `●` | responds, fingerprint matches, data is fresh |
 
-"Data is not flowing" means either: the probe is failing **and** the
-bridge is not covering; or the bridge reports `missing`, `unreadable` or
-`invalid`. The panel-age criterion is **not** part of the state in v1 —
-it is displayed in the dropdown but does not colour the glyph, pending
-open question 1. A threshold guessed today would be the alert-fatigue
-mistake this design is otherwise careful to avoid.
+"Data is not flowing" means any of: `interactions.panel.ageS` exceeds
+**15 seconds**; the probe is failing **and** the bridge is not covering;
+or the bridge reports `missing`, `unreadable` or `invalid`.
+
+Fifteen seconds is fifteen missed polls — the device polls at 1 Hz, so
+the signal is unambiguous well before the threshold is reached. It
+follows that a sleeping device or a WiFi drop shows amber. That is
+correct rather than noisy: data genuinely is not reaching the panel,
+which is the thing this indicator exists to report.
 
 A state is never inferred from a stale reading. If a refresh fails, the
 indicator shows DOWN with the reason — it does not keep painting the last
@@ -194,18 +219,19 @@ that motivated the tool are the two the tests pin.
 - **Fixing the discovery deadlock.** Out of scope and tracked separately;
   this design only has to stay honest while it is unfixed.
 
+## Resolved during review (2026-09-17)
+
+1. **Panel-age threshold: 15 seconds.** See signal 3.
+2. **Import cost accepted.** Importing the tokenserver module every 30 s
+   to reach `_read_source_fingerprint` costs ~100 ms and pulls in a large
+   module for ten lines of hashing. Accepted as the price of a single
+   definition of the hash. Should it prove noisy, extracting the hash to
+   a small shared module is preferred over duplicating it.
+3. **Second instance: detected, via signal 4.** Comparing the port owner
+   against the LaunchAgent pid was considered and declined — a second
+   subprocess per refresh for a case the two chosen signals largely
+   already reach.
+
 ## Open questions
 
-1. **Panel-age threshold.** What counts as "the panel has not been served
-   recently"? The device polls at 1 Hz, so the floor is low, but sleep and
-   WiFi drops produce legitimate gaps. Needs one observation window before
-   a number is chosen; until then the signal ships disabled rather than
-   guessed.
-2. **Import cost.** Importing the tokenserver module every 30 s to reach
-   `_read_source_fingerprint` is ~100 ms and pulls in a large module for
-   ten lines of hashing. Acceptable, but if it proves noisy the hash is
-   the one piece worth extracting into a small shared module rather than
-   duplicating.
-3. **Second instance.** If a manual `tokenserver.py` is ever run beside
-   the LaunchAgent, the indicator reports whichever owns port 8737 and
-   cannot say there are two. `GET /` has no field for it.
+None outstanding.

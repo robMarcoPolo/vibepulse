@@ -157,5 +157,28 @@ class Instances(unittest.TestCase):
         self.assertEqual(mb.OK, state)
 
 
+class Rendering(unittest.TestCase):
+
+    def test_lines_carry_the_facts_a_reader_needs(self):
+        _, _, lines = mb.decide(payload(), SRC, 1)
+        joined = "\n".join(lines)
+        self.assertIn("0d6f8b5", joined)          # rev, as information
+        self.assertIn(SRC, joined)                # fingerprint
+        self.assertIn("usage_http_200", joined)   # probe
+        self.assertIn("2.1.267", joined)          # Claude Code version
+
+    def test_render_puts_the_glyph_first_and_opens_a_dropdown(self):
+        out = mb.render(mb.OK, [], ["rev 0d6f8b5"])
+        first, rest = out.split("\n", 1)
+        self.assertTrue(first.startswith(mb.GLYPH[mb.OK]))
+        self.assertIn("---", rest)
+        self.assertIn("rev 0d6f8b5", rest)
+
+    def test_render_shows_the_first_reason_in_the_title_when_not_ok(self):
+        out = mb.render(mb.DOWN, ["timeout after 3s"], [])
+        self.assertTrue(out.startswith(mb.GLYPH[mb.DOWN]))
+        self.assertIn("timeout after 3s", out.split("\n", 1)[0])
+
+
 if __name__ == "__main__":
     unittest.main()

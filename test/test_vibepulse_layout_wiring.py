@@ -17,15 +17,18 @@ attention_fonts = (
 assert (
     '#include "labs_features.h"' in header
 )
+# View IDs are display order and are not persisted, so an inserted view
+# renumbers the rest; this list is the checked-in record of that order.
 for enum_literal in (
-    "VIEW_CLAUDE_FABLE = 0",
-    "VIEW_CLAUDE_ALL = 1",
-    "VIEW_CODEX_WEEKLY = 2",
-    "VIEW_BURN_RATE = 3",
-    "VIEW_TRACKER_CLAUDE = 4",
-    "VIEW_TRACKER_CODEX = 5",
-    "VIEW_GITHUB = 6",
-    "VIEW_VALUE = 7",
+    "VIEW_CLAUDE_SESSION = 0",
+    "VIEW_CLAUDE_FABLE = 1",
+    "VIEW_CLAUDE_ALL = 2",
+    "VIEW_CODEX_WEEKLY = 3",
+    "VIEW_BURN_RATE = 4",
+    "VIEW_TRACKER_CLAUDE = 5",
+    "VIEW_TRACKER_CODEX = 6",
+    "VIEW_GITHUB = 7",
+    "VIEW_VALUE = 8",
 ):
     assert enum_literal in (root / "components/app_tokens/labs_features.h").read_text()
 assert "VIEW_VOLUME" not in app_header
@@ -84,7 +87,8 @@ assert "if (app.stale)" not in tokens_apply, \
 
 create = source[source.index("void usage_screen_create"):]
 create = create[:create.index("void usage_screen_apply_tokens")]
-assert create.count("create_quota_page(") == 3
+# session + fable-week + all-models-week + codex-week
+assert create.count("create_quota_page(") == 4
 assert create.count("create_burn_rate_page(") == 1
 assert create.count("create_tracker_page(") == 2
 assert "create_github_page();" in create
@@ -96,7 +100,9 @@ assert "tk_agent_monitor_create(root);" in create
 
 quota = source[source.index("static void create_quota_page"):]
 quota = quota[:quota.index("static void create_burn_rate_page")]
-for copy in ("USED TODAY", "TO RESET"):
+# The session view's delta covers the last hour, not the day; a shared
+# caption would misdescribe it by up to four hours.
+for copy in ("USED TODAY", "USED THIS HOUR", "TO RESET"):
     assert f'"{copy}"' in quota
 assert "VP_BAR_Y" in quota and "VP_BAR_H" in quota
 assert "baseline_fill" in quota and "today_fill" in quota

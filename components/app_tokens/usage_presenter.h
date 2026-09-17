@@ -45,6 +45,7 @@ typedef struct {
 } usage_hero_view;
 
 typedef enum {
+  USAGE_QUOTA_CLAUDE_SESSION,
   USAGE_QUOTA_CLAUDE_MODEL,
   USAGE_QUOTA_CLAUDE_ALL,
   USAGE_QUOTA_CODEX_WEEK,

@@ -1157,6 +1157,16 @@ static int run_vibepulse_static_qa(void) {
 
   apply_agent_file("agent-status-idle.json");
   dump_frame("vibepulse-claude-idle");
+
+  /* The session view is what the panel wakes up on, so it is captured both
+     with a live reading and with none: a five-hour window that has no figure
+     must say so rather than draw a confident 0%. */
+  tokens_show_view(VIEW_CLAUDE_SESSION);
+  dump_frame("vibepulse-session-idle");
+  feed_tokens_file("tokens-missing.json");
+  dump_frame("vibepulse-session-missing");
+  feed_tokens();
+
   tokens_show_view(VIEW_CODEX_WEEKLY);
   dump_frame("vibepulse-codex-idle");
 

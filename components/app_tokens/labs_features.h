@@ -10,11 +10,15 @@ typedef enum {
 #define TK_LABS_ALL 31u
 #define TK_LABS_RECORD_VERSION 0x100u
 
-/* IDs stay stable; physical tile columns are dense and depend on the boot mask. */
+/* Physical tile columns are dense and depend on the boot mask. The IDs below
+ * are NOT persisted anywhere — no NVS record stores a view — so the order is
+ * free to change when the rotation should read differently; only the Labs
+ * FEATURE bits are durable. View 0 is what the panel wakes up on. */
 enum {
-  VIEW_CLAUDE_FABLE = 0, VIEW_CLAUDE_ALL = 1, VIEW_CODEX_WEEKLY = 2,
-  VIEW_BURN_RATE = 3, VIEW_TRACKER_CLAUDE = 4, VIEW_TRACKER_CODEX = 5,
-  VIEW_GITHUB = 6, VIEW_VALUE = 7, TK_USAGE_SCREEN_VIEWS = 8
+  VIEW_CLAUDE_SESSION = 0, VIEW_CLAUDE_FABLE = 1, VIEW_CLAUDE_ALL = 2,
+  VIEW_CODEX_WEEKLY = 3, VIEW_BURN_RATE = 4, VIEW_TRACKER_CLAUDE = 5,
+  VIEW_TRACKER_CODEX = 6, VIEW_GITHUB = 7, VIEW_VALUE = 8,
+  TK_USAGE_SCREEN_VIEWS = 9
 };
 
 /* Init before creating UI/tasks. Active is immutable until the next boot.

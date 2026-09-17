@@ -28,12 +28,16 @@ class GitHubWiringTests(unittest.TestCase):
             "!tk_labs_active(TK_LABS_GITHUB) && !tk_labs_active(TK_LABS_STAR_POPUP)",
             net)
 
-    def test_github_is_one_optional_seventh_view(self):
+    def test_github_is_one_optional_late_view(self):
         ui = read("components/app_tokens/usage_screen.c")
-        # Semantic IDs are stable. The pure C test exhausts all 32 dense maps.
+        # View IDs are display order, not durable state: nothing persists them,
+        # so inserting a view renumbers the rest and this pin moves with it.
+        # What must stay true is that GitHub and Value are the last two, after
+        # every base view. The pure C test exhausts all 32 dense maps.
         policy = read("components/app_tokens/labs_features.h")
-        self.assertIn("VIEW_GITHUB = 6", policy)
-        self.assertIn("VIEW_VALUE = 7", policy)
+        self.assertIn("VIEW_GITHUB = 7", policy)
+        self.assertIn("VIEW_VALUE = 8", policy)
+        self.assertIn("TK_USAGE_SCREEN_VIEWS = 9", policy)
         self.assertIn("tk_labs_view_position(index)", ui)
         self.assertIn("lv_tileview_add_tile(ui.tileview, position, 0, direction)", ui)
         self.assertIn("_Static_assert(VIEW_VALUE < TK_USAGE_SCREEN_VIEWS", ui)
@@ -62,7 +66,7 @@ class GitHubWiringTests(unittest.TestCase):
         self.assertIn("assert(at == pos++);", test)
         self.assertIn("assert(tk_labs_next_view(previous, 1) == view);", test)
         self.assertIn(
-            "assert(tk_labs_view_position(VIEW_VALUE) == 2 + TK_CODEX_ENABLED);",
+            "assert(tk_labs_view_position(VIEW_VALUE) == 3 + TK_CODEX_ENABLED);",
             test)
         # The same argument applies to the provider toggle: a Claude-only
         # build changes which views exist, so CI must compile both.

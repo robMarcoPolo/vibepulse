@@ -23,8 +23,8 @@ int main(void) {
   /* Base views are CLAUDE_FABLE + CLAUDE_ALL, plus CODEX_WEEKLY only on a
    * build that wants Codex; TRACKER likewise contributes one view or two. */
   assert(tk_labs_view_count() ==
-         (TK_LABS_ANALYTICS_DEFAULT ? 5 + 2 * TK_CODEX_ENABLED
-                                    : 2 + TK_CODEX_ENABLED) +
+         (TK_LABS_ANALYTICS_DEFAULT ? 6 + 2 * TK_CODEX_ENABLED
+                                    : 3 + TK_CODEX_ENABLED) +
          TK_GITHUB_SCREEN_ENABLED);
   assert(tk_labs_active(TK_LABS_GITHUB) == !!TK_GITHUB_SCREEN_ENABLED);
   assert(tk_labs_active(TK_LABS_STAR_POPUP) == !!TK_GITHUB_NOTIFICATIONS_ENABLED);
@@ -34,9 +34,12 @@ int main(void) {
   for (unsigned mask = 0; mask <= TK_LABS_ALL; mask++) {
     saved = TK_LABS_RECORD_VERSION | mask;
     tk_labs_init();
-    int expected_count = 2 + TK_CODEX_ENABLED + !!(mask & 1) +
+    int expected_count = 3 + TK_CODEX_ENABLED + !!(mask & 1) +
                          (1 + TK_CODEX_ENABLED) * !!(mask & 2) +
                          !!(mask & 4) + !!(mask & 8);
+    /* The session view is a base view: always present, always column 0,
+       so the panel wakes up on "right now" whatever else is enabled. */
+    assert(tk_labs_view_position(VIEW_CLAUDE_SESSION) == 0);
     /* Whatever the mask, a Claude-only build never offers a Codex view. */
     assert((tk_labs_view_position(VIEW_CODEX_WEEKLY) >= 0) ==
            !!TK_CODEX_ENABLED);
@@ -58,7 +61,7 @@ int main(void) {
     assert(tk_labs_next_view(previous, 1) == 0);
     assert(tk_labs_next_view(0, -1) == previous);
     assert(tk_labs_view_position(-1) == -1);
-    assert(tk_labs_view_position(8) == -1);
+    assert(tk_labs_view_position(TK_USAGE_SCREEN_VIEWS) == -1);
     for (int feature = 0; feature < TK_LABS_COUNT; feature++) {
       bool before = !!(mask & (1u << feature));
       assert(tk_labs_active(feature) == before);
@@ -76,8 +79,8 @@ int main(void) {
   assert(tk_labs_toggle(TK_LABS_VALUE));
   tk_labs_init(); /* reboot: saved choice wins over any template default */
   assert(tk_labs_active(TK_LABS_VALUE) && !tk_labs_pending());
-  assert(tk_labs_view_count() == 3 + TK_CODEX_ENABLED);
-  assert(tk_labs_view_position(VIEW_VALUE) == 2 + TK_CODEX_ENABLED);
+  assert(tk_labs_view_count() == 4 + TK_CODEX_ENABLED);
+  assert(tk_labs_view_position(VIEW_VALUE) == 3 + TK_CODEX_ENABLED);
   fail_write = true;
   assert(!tk_labs_toggle(TK_LABS_VALUE));
   assert(tk_labs_selected(TK_LABS_VALUE) && tk_labs_storage_error());

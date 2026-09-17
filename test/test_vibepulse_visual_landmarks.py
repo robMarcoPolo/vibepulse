@@ -64,9 +64,15 @@ WIFI_OPEN_QR_SIZE = 196
 
 
 def _screen_views():
-    # Standard fixture runs opt in to all five LABS. Runtime subsets are tested
-    # by test_labs_features and the real LVGL --vibepulse-labs-qa mode.
-    return 8
+    # Standard fixture runs opt in to all five LABS, so every view is present.
+    # Runtime subsets are tested by test_labs_features and the real LVGL
+    # --vibepulse-labs-qa mode. Read the count from the header: this used to be
+    # a literal 8 under a comment claiming it was read, and inserting a view
+    # made the test disagree with a renderer that was drawing the truth.
+    header = (ROOT / "components/app_tokens/labs_features.h").read_text()
+    match = re.search(r"TK_USAGE_SCREEN_VIEWS\s*=\s*(\d+)", header)
+    assert match, "TK_USAGE_SCREEN_VIEWS not found in labs_features.h"
+    return int(match.group(1))
 
 
 SCREEN_VIEWS = _screen_views()
@@ -160,6 +166,8 @@ EXPECTED = {
     "torget-vibepulse-claude-lease-expired.bmp",
     "torget-vibepulse-claude-multi-chat.bmp",
     "torget-vibepulse-claude-idle.bmp",
+    "torget-vibepulse-session-idle.bmp",
+    "torget-vibepulse-session-missing.bmp",
     "torget-vibepulse-codex-single-working.bmp",
     "torget-vibepulse-codex-multi-chat.bmp",
     "torget-vibepulse-codex-idle.bmp",
@@ -1336,11 +1344,11 @@ class VibePulseVisualLandmarkTests(unittest.TestCase):
         # written here, so adding a view updates this test's expectation but
         # never lets the row silently go uncounted.
         cases = (
-            ("torget-vibepulse-tracker-claude-coldstart.bmp", 4),  # VIEW_TRACKER_CLAUDE
-            ("torget-vibepulse-tracker-codex-full.bmp", 5),        # VIEW_TRACKER_CODEX
-            ("torget-vibepulse-tracker-empty.bmp", 5),             # view unchanged
-            ("torget-vibepulse-tracker-stale.bmp", 5),             # view unchanged
-            ("torget-vibepulse-value-both.bmp", 7),               # VIEW_VALUE (last tile)
+            ("torget-vibepulse-tracker-claude-coldstart.bmp", 5),  # VIEW_TRACKER_CLAUDE
+            ("torget-vibepulse-tracker-codex-full.bmp", 6),        # VIEW_TRACKER_CODEX
+            ("torget-vibepulse-tracker-empty.bmp", 6),             # view unchanged
+            ("torget-vibepulse-tracker-stale.bmp", 6),             # view unchanged
+            ("torget-vibepulse-value-both.bmp", 8),               # VIEW_VALUE (last tile)
         )
         for name, active_index in cases:
             with self.subTest(name=name):

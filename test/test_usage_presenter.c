@@ -60,6 +60,33 @@ int main(void) {
   check("cached Fable keeps trusted label",
         strcmp(page.quota.label, "FABLE · WEEK") == 0);
 
+  usage_presenter_build_quota_page(&tokens, USAGE_QUOTA_CLAUDE_SESSION,
+                                   &page);
+  check("session page reads the five-hour window",
+        page.provider == USAGE_PROVIDER_CLAUDE &&
+        page.quota.kind == USAGE_CARD_FIVE_HOURS &&
+        strcmp(page.quota.label, "SESSION · 5H") == 0 &&
+        strcmp(page.quota.pct_text, "21%") == 0 &&
+        strcmp(page.quota.delta_text, "+11%") == 0 &&
+        strcmp(page.quota.reset_short_text, "1H 20M") == 0);
+  /* There is no session forecast, so the stat has nothing to fold in and
+     must keep counting to the reset rather than inventing a wall. */
+  check("the session stat counts to its reset, never to a forecast wall",
+        strcmp(page.countdown_caption, "TO RESET") == 0 &&
+        !page.counts_to_empty);
+
+  {
+    tk_tokens no_session = {0};
+    usage_quota_page_view blank = {0};
+    usage_presenter_build_quota_page(&no_session, USAGE_QUOTA_CLAUDE_SESSION,
+                                     &blank);
+    check("a session with no reading says so instead of showing zero",
+          !blank.quota.has_pct &&
+          strcmp(blank.quota.label, "SESSION · 5H") == 0 &&
+          strcmp(blank.quota.pct_text, "–") == 0 &&
+          strcmp(blank.quota.reset_text, "USAGE UNAVAILABLE") == 0);
+  }
+
   usage_presenter_build_quota_page(&tokens, USAGE_QUOTA_CLAUDE_ALL, &page);
   check("Claude all-model page is independent",
         page.provider == USAGE_PROVIDER_CLAUDE &&

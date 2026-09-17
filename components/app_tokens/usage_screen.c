@@ -156,10 +156,14 @@ typedef struct {
   lv_obj_t *cap_api, *cap_break, *cap_paid;
 } value_page;
 
+/* Every quota page is created once and refreshed together; the array and
+ * the refresh loop must agree, so they share one name. */
+#define TK_USAGE_QUOTA_PAGES 4
+
 static struct {
   lv_obj_t *tileview;
   lv_obj_t *tiles[TK_USAGE_SCREEN_VIEWS];
-  quota_page quotas[3];
+  quota_page quotas[TK_USAGE_QUOTA_PAGES];
   forecast_row forecast_rows[2];
   tracker_page trackers[2];
   github_page github;
@@ -524,9 +528,13 @@ static void create_quota_page(quota_page *page, int index,
   lv_obj_set_style_bg_color(page->marker, COL_WHITE, 0);
   lv_obj_add_flag(page->marker, LV_OBJ_FLAG_HIDDEN);
 
+  /* The delta's window is the scope's, not always the day: the session
+     figure is delta_since(now - 1h) on the service side, so calling it
+     "USED TODAY" on a five-hour window would misread by up to four hours. */
   create_stat(page->tile, &page->today, NULL, VP_SAFE_X, 210, false,
               provider == USAGE_PROVIDER_CLAUDE ? COL_CLAUDE : COL_CODEX,
-              "USED TODAY");
+              scope == USAGE_QUOTA_CLAUDE_SESSION ? "USED THIS HOUR"
+                                                  : "USED TODAY");
   create_stat(page->tile, &page->reset, &page->reset_caption,
               RIGHT_STAT_X, RIGHT_STAT_W, true, COL_WHITE, "TO RESET");
   lv_label_set_text(page->today, "–");
@@ -1017,11 +1025,13 @@ void usage_screen_create(lv_obj_t *root) {
   lv_obj_set_style_bg_opa(ui.tileview, LV_OPA_COVER, 0);
   lv_obj_set_style_bg_color(ui.tileview, COL_BLACK, 0);
 
-  create_quota_page(&ui.quotas[0], VIEW_CLAUDE_FABLE,
+  create_quota_page(&ui.quotas[0], VIEW_CLAUDE_SESSION,
+                    USAGE_QUOTA_CLAUDE_SESSION, USAGE_PROVIDER_CLAUDE);
+  create_quota_page(&ui.quotas[1], VIEW_CLAUDE_FABLE,
                     USAGE_QUOTA_CLAUDE_MODEL, USAGE_PROVIDER_CLAUDE);
-  create_quota_page(&ui.quotas[1], VIEW_CLAUDE_ALL,
+  create_quota_page(&ui.quotas[2], VIEW_CLAUDE_ALL,
                     USAGE_QUOTA_CLAUDE_ALL, USAGE_PROVIDER_CLAUDE);
-  create_quota_page(&ui.quotas[2], VIEW_CODEX_WEEKLY,
+  create_quota_page(&ui.quotas[3], VIEW_CODEX_WEEKLY,
                     USAGE_QUOTA_CODEX_WEEK, USAGE_PROVIDER_CODEX);
   if (tk_labs_active(TK_LABS_BURN_RATE)) create_burn_rate_page();
   if (tk_labs_active(TK_LABS_TRACKER)) {
@@ -1065,7 +1075,8 @@ void usage_screen_apply_tokens(const tk_tokens *tokens) {
     merged.value.state = TK_VALUE_UNAVAILABLE;
   }
   ui.last_tokens = merged;
-  for (int i = 0; i < 3; i++) apply_quota(&ui.quotas[i], &merged);
+  for (int i = 0; i < TK_USAGE_QUOTA_PAGES; i++)
+    apply_quota(&ui.quotas[i], &merged);
   if (tk_labs_active(TK_LABS_BURN_RATE)) {
     usage_forecast_page_view forecasts = {0};
     usage_presenter_build_forecasts(&merged, &forecasts);
@@ -1108,7 +1119,8 @@ void usage_screen_apply_agent(const tk_agent_snapshot *snapshot,
   ui.agent_applied_at_us = now_us;
   ui.last_now_us = now_us;
   ui.has_agent_snapshot = true;
-  for (int i = 0; i < 3; i++) refresh_header(&ui.quotas[i], now_us);
+  for (int i = 0; i < TK_USAGE_QUOTA_PAGES; i++)
+    refresh_header(&ui.quotas[i], now_us);
   for (int i = 0; i < 2; i++) refresh_tracker_header(&ui.trackers[i], now_us);
   tk_agent_monitor_apply(snapshot, now_us);
 }
@@ -1122,14 +1134,16 @@ void usage_screen_apply_agent_status_relay(
   ui.agent_applied_at_us = now_us;
   ui.last_now_us = now_us;
   ui.has_agent_snapshot = true;
-  for (int i = 0; i < 3; i++) refresh_header(&ui.quotas[i], now_us);
+  for (int i = 0; i < TK_USAGE_QUOTA_PAGES; i++)
+    refresh_header(&ui.quotas[i], now_us);
   for (int i = 0; i < 2; i++) refresh_tracker_header(&ui.trackers[i], now_us);
   tk_agent_monitor_apply_status_relay(snapshot, now_us);
 }
 
 void usage_screen_tick(int64_t now_us) {
   ui.last_now_us = now_us;
-  for (int i = 0; i < 3; i++) refresh_header(&ui.quotas[i], now_us);
+  for (int i = 0; i < TK_USAGE_QUOTA_PAGES; i++)
+    refresh_header(&ui.quotas[i], now_us);
   for (int i = 0; i < 2; i++) refresh_tracker_header(&ui.trackers[i], now_us);
   tk_agent_monitor_tick(now_us);
   if (tk_labs_active(TK_LABS_STAR_POPUP)) tk_project_star_popup_tick(now_us);
@@ -1137,7 +1151,7 @@ void usage_screen_tick(int64_t now_us) {
 
 void usage_screen_set_stale(bool stale) {
   ui.stale = stale;
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < TK_USAGE_QUOTA_PAGES; i++)
     refresh_header(&ui.quotas[i], ui.last_now_us);
   for (int i = 0; i < 2; i++)
     refresh_tracker_header(&ui.trackers[i], ui.last_now_us);

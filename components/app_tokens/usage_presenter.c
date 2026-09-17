@@ -133,6 +133,7 @@ static const tk_forecast *scope_forecast(const tk_tokens *tokens,
       return &tokens->claude_forecast;
     case USAGE_QUOTA_CODEX_WEEK:
       return &tokens->codex_forecast;
+    case USAGE_QUOTA_CLAUDE_SESSION:
     case USAGE_QUOTA_CLAUDE_MODEL:
     default:
       return NULL;
@@ -174,6 +175,12 @@ void usage_presenter_build_quota_page(const tk_tokens *tokens,
   memset(out, 0, sizeof *out);
 
   switch (scope) {
+    case USAGE_QUOTA_CLAUDE_SESSION:
+      out->provider = USAGE_PROVIDER_CLAUDE;
+      build_card(&out->quota, USAGE_CARD_FIVE_HOURS,
+                 "SESSION · 5H", &tokens->claude_session);
+      limit = &tokens->claude_session;
+      break;
     case USAGE_QUOTA_CLAUDE_MODEL:
       out->provider = USAGE_PROVIDER_CLAUDE;
       build_card(&out->quota, USAGE_CARD_MODEL_WEEK,

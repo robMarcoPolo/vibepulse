@@ -21,6 +21,33 @@ point at the backlog item.
 
 ---
 
+## 2026-09-17 · Raising the flush height squeezes the DMA budget from both ends
+
+**What happened:** the swipe ran at 5 FPS with the CPU pegged at 100 %.
+`DISPLAY_FLUSH_ROWS 12` turned out to be a **40x multiplier on tree walks** —
+LVGL's `PARTIAL` mode splits the invalid area into strips of the draw-buffer
+height and calls `refr_area()` once per strip (`lv_refr.c`), each walking the
+whole object tree. Raising it to 20 looked like free speed. It fired the
+`LÅGT DMA-block` warning twice in 70 seconds. **Root cause:** the height sets
+the *requirement* (`rows x 480 x 2`) **and** shrinks the *supply* — the same
+constant feeds `max_transfer_sz`, and the SPI driver takes its DMA
+descriptors from internal RAM, measured at ~768 B of largest-block lost per
+row added. 12 rows: need 11 520, worst block 40 960, 3.6x margin. 20 rows:
+need 19 200, worst block 34 816, 1.81x. The sizing arithmetic that assumed
+only the requirement moved was wrong by exactly the supply term.
+`panel_co5300_draw_bitmap()` hands the whole length to `tx_color` in one go,
+so height and DMA footprint cannot be decoupled without forking the driver.
+**The rule:** the flush height is capped by internal RAM, not by appetite;
+model BOTH terms before changing it, and only from a fresh serial
+measurement. Make the tree cheaper to walk instead of the strip taller.
+**Guards:** `DISPLAY_FLUSH_ROWS` back to 12 with both measurements in the
+comment; `test_agent_demo_wiring.py` asserts the value and that the flush
+fits twice in the worst measured block. **Watch for:** the CPU figure is what
+made this diagnosable — 5 FPS alone cannot tell "waiting on a bus" from
+"burning cycles", and 100 % CPU ruled out the QSPI clock that the whole
+investigation started from. Also: this warning had been shipping unheard,
+because the panel's only log is USB serial that survives nothing (OBS).
+
 ## 2026-09-17 · Burn-in drift scrolled the screen and LVGL drew the bar
 
 **What happened:** grey scrollbars appeared along the panel's right and

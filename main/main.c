@@ -70,15 +70,24 @@ static const char *TAG = "torget";
  * (rader x 480 x 2) och hur många gånger LVGL går igenom hela objektträdet
  * per bild. LV_DISPLAY_RENDER_MODE_PARTIAL delar den ogiltiga ytan i
  * strimlor och kallar refr_area() en gång per strimla (lv_refr.c), och
- * varje refr_area() vandrar trädet. Tolv rader gav 40 vandringar per
- * helskärmsbild — mätt på glaset 2026-09-17: 5 FPS vid 100 % CPU, dvs
- * ~136 cykler per pixel, där en blandning kostar 2-20.
+ * varje refr_area() vandrar trädet. Tolv rader ger 40 vandringar per
+ * helskärmsbild, och det ÄR svepets kostnad — mätt 2026-09-17: 5 FPS vid
+ * 100 % CPU, ~136 cykler per pixel där en blandning kostar 2-20.
  *
- * Taket är internminnet, inte lusten: heap-larmet i tick_cb varnar under
- * flush x 2. Seriemätning 2026-09-17 gav största DMA-block 53 248 B i vila
- * och 40 960 B som sämsta sampel, så 20 rader (19 200 B) håller 2,1 x mot
- * det sämsta. Höj ALDRIG utan en ny mätning — se docs/lessons.md. */
-#define DISPLAY_FLUSH_ROWS 20
+ * TWENTY ROWS ÄR PRÖVAT OCH FÖRKASTAT (2026-09-17). Att höja klämmer från
+ * BÅDA hållen: kravet växer med rader x 960, OCH tillgången krymper, för
+ * max_transfer_sz växer med och SPI-drivrutinen tar sina DMA-deskriptorer
+ * ur internminnet — uppmätt ~768 byte förlorat största-block per rad.
+ *   12 rader: behov 11 520, sämsta block 40 960 -> 3,6 x marginal
+ *   20 rader: behov 19 200, sämsta block 34 816 -> 1,81 x, LÅGT DMA-larmet
+ *             fyrade två gånger på 70 sekunder
+ * Drivrutinen kan inte dela upp en flush (panel_co5300_draw_bitmap skickar
+ * hela längden till tx_color), så höjd och DMA-avtryck går inte att skilja
+ * åt. Taket är internminnet. Rör inte utan en ny seriemätning.
+ *
+ * Rätt väg mot de 40 vandringarna är att göra trädet billigare att vandra,
+ * inte strimlan högre. */
+#define DISPLAY_FLUSH_ROWS 12
 
 /* Nattläge: AMOLED tål mörker bäst av allt, och skärmen står i ett hem.
  * Aktivitet är villkoret, inte klockan: apparna rapporterar liv via

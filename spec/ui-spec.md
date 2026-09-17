@@ -60,9 +60,14 @@ Inaktiv `#2b3442`, aktiv accent. Mjuk färgövergång ~220 ms.
 
 ## Beteenden
 
-- **Svep**: tröskel 60 px horisontellt. Snäpp till närmsta vy, 320 ms,
-  ease-out (webben: cubic-bezier(0.22, 0.61, 0.36, 1); LVGL: ease_out räcker).
-  Vertikalt svep ignoreras.
+- **Svep**: en vågrät flick BYTER SIDA DIREKT — ingen snäppanimation, ingen
+  bild som följer fingret. Tröskeln är LVGL:s gestgräns (50 px, min-velocity
+  3 px/avläsning). Vertikalt svep ignoreras.
+  Skälet är mätt, inte estetiskt: varje dragbildruta är en helskärms-
+  omritning, och panelen orkar ~6,5 i sekunden, så en 400 ms snäppning fick
+  ~3 bildrutor att flytta 480 px och lästes som hack. Ett hopp ritar samma
+  pixlar EN gång. (Webben får gärna behålla sin animation — den har inte
+  panelens ritkostnad.) Se docs/lessons.md 2026-09-17.
 - **Ticker**: vid varje lyckad hämtning: snappa till serverns `kr` (auktoritativ,
   även om det är bakåt). Däremellan: värde = bas + `krPerHour` × timmar sedan
   hämtning, klockat med `esp_timer_get_time()`. Etikettuppdatering 10 Hz.

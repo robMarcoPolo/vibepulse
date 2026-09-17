@@ -21,6 +21,30 @@ point at the backlog item.
 
 ---
 
+## 2026-09-17 · The gesture was fine; nothing was listening
+
+**What happened:** a new flick-to-page-turn did nothing at all on the glass —
+no movement, no error, one wasted flash cycle. **Root cause:** LVGL sends
+`LV_EVENT_GESTURE` to `indev->pointer.act_obj`, but first walks *up* the tree
+while the object has `LV_OBJ_FLAG_GESTURE_BUBBLE` — and `lv_obj_constructor`
+sets that flag on **every object that has a parent**
+(`if(parent) { ... obj->gesture_bubble = 1; }`). The flick therefore travelled
+tile → tileview → root → drift box → screen, and the handler on the tile never
+ran. The bug was in reading: `gesture_obj = act_obj` was read and believed; the
+`while` loop on the *next line* was not. **The rule:** when wiring an LVGL
+event, read to the end of the dispatch, not to the first line that looks like
+an answer — and clear `GESTURE_BUBBLE` on whichever object is meant to handle
+a gesture. **Guards:** `lv_obj_remove_flag(tile, LV_OBJ_FLAG_GESTURE_BUBBLE)`
+in `new_tile()`; `check_flick_navigation()` in `sim/main.c` drives a synthetic
+pointer and asserts left/right page and vertical does not — mutation-checked by
+restoring the flag and watching it fail with the on-glass symptom.
+**Watch for:** the first version of that test produced no gesture at all and
+would have passed anything. LVGL zeroes the gesture accumulator on any read
+moving under `min_velocity` (3 px), so a synthetic pointer that jumps then
+holds still resets its own sum before reaching the 50 px limit. Motion must
+happen *inside* the read callback — which is also how a finger behaves. A
+harness that cannot fail is not evidence.
+
 ## 2026-09-17 · Raising the flush height squeezes the DMA budget from both ends
 
 **What happened:** the swipe ran at 5 FPS with the CPU pegged at 100 %.

@@ -21,6 +21,26 @@ point at the backlog item.
 
 ---
 
+## 2026-09-16 · The LVGL pool guard outlived the Kconfig symbol it named
+
+**What happened:** the first USB flash after a routine component bump booted
+to a dark panel. `main` spun in LVGL's out-of-memory assert building the WiFi
+setup screen's 196x196 QR canvas, starving IDLE0; the task watchdog printed
+every five seconds and — warn-only on purpose — never rebooted. USB was the
+only way back in. **Root cause:** the bump carried LVGL 9.5.0 -> 9.6.0, which
+deprecated `LV_MEM_SIZE_KILOBYTES` in favour of `LV_MEM_SIZE` (bytes).
+`sdkconfig.defaults` set only the deprecated symbol, and the 2026-08-19 pool
+guard *checked that same symbol* — so both reported a healthy 256 KiB while
+LVGL used its own 64 KiB default. The guard never rotted; its referent moved.
+**The rule:** a guard must read the value its consumer reads, in the unit that
+consumer uses. A *minor* dependency bump can move the build-configuration
+surface even when the C API is stable. **Guards:** `torget_require_lvgl_pool`
+now takes bytes and reads `CONFIG_LV_MEM_SIZE`; defaults set both spellings to
+256 KiB; `test_lvgl_own_default_is_rejected` fails the BUILD on LVGL's 64 KiB
+default (aeea0c4). **Watch for:** CI builds the firmware but never boots it, so
+this class arrives green — and the caret ranges in the five `idf_component.yml`
+files admit it with no code change. The freeze was only readable because
+`CONFIG_LV_USE_LOG` had just been turned on; without it the panel is mute.
 ## 2026-09-10 · A background scan still blocked every request through the lock
 
 **What happened:** after a restart on a Mac with a large Claude/Codex

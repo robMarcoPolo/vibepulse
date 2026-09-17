@@ -21,6 +21,33 @@ point at the backlog item.
 
 ---
 
+## 2026-09-17 · Burn-in drift scrolled the screen and LVGL drew the bar
+
+**What happened:** grey scrollbars appeared along the panel's right and
+bottom edges, intermittently — reported as "sometimes, especially
+vertically". **Root cause:** `torget_drift_step()` translates the 480 x 480
+`tg.shift` box by up to +3 px inside the 480 x 480 active screen. LVGL folds
+`translate_x/y` into the object's *real* coordinates
+(`lv_obj_pos.c`, `x += tr_x`), so the nudge is genuine scroll overflow, not a
+paint-time offset. Every container here is built through a `bare()` helper
+whose `lv_obj_remove_style_all()` zeroes the scrollbar part's opacity — which
+is why nothing else ever showed one — but `lv_screen_active()` is created by
+LVGL, never passes through `bare()`, and so kept the stock theme: scrollable,
+`LV_SCROLLBAR_MODE_AUTO`, visible `#3E3E3E` bar. Only *positive* translate
+overflows, and x is positive in 3 of the 4 drift steps — hence a bar on glass
+3 minutes in every 4, the tall right-edge one just 1 in 4. **The rule:**
+nothing may scroll the screen — apps switch by showing and hiding roots, so
+the screen is marked non-scrollable at create time. Treat "this object was
+never handed to our styling helper" as a live hazard, not an oversight.
+**Guards:** `lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE)` in
+`torget_ui_create()`;
+`test_burn_in_drift_moves_the_picture_without_adding_scrollbars` asserts each
+drift frame's content bbox equals step 0's shifted by exactly that step, so
+any future object painting outside the page fails too. **Watch for:** the
+evidence was already in the QA fixtures — `torget-wifi-drift-1..3.bmp` had
+carried the bars for as long as the captures existed, and no assertion looked
+at the frame's edges. Captures only catch what something asserts about them.
+
 ## 2026-09-16 · The LVGL pool guard outlived the Kconfig symbol it named
 
 **What happened:** the first USB flash after a routine component bump booted

@@ -1680,6 +1680,33 @@ class VibePulseVisualLandmarkTests(unittest.TestCase):
                     bounds,
                 )
 
+    def test_burn_in_drift_moves_the_picture_without_adding_scrollbars(self):
+        """Drift nudges the page a few pixels; it must never grow it.
+
+        `tg.shift` is a 480x480 box inside a 480x480 screen, so a positive
+        translate pushes it past the screen's edge.  LVGL folds translate into
+        the real coordinates, so that overflow is genuine scroll range -- and a
+        screen left on the stock theme answers it with a stock scrollbar.
+        Asserting the exact translation catches the bars and any future object
+        that starts painting outside the page.
+        """
+        steps = {
+            "0": (0, 0),
+            "1": (2, 1),
+            "2": (3, -1),
+            "3": (1, -2),
+            "return": (0, 0),
+        }
+        base = self.image("torget-wifi-drift-0.bmp").getbbox()
+        for tag, (dx, dy) in steps.items():
+            with self.subTest(tag=tag):
+                self.assertEqual(
+                    self.image(f"torget-wifi-drift-{tag}.bmp").getbbox(),
+                    (base[0] + dx, base[1] + dy, base[2] + dx, base[3] + dy),
+                    "drift step painted outside the page -- a screen scrollbar "
+                    "is the usual culprit",
+                )
+
     def test_wifi_status_is_hidden_on_boot_and_covered_by_takeovers(self):
         box = (426, 28, 446, 46)
         for name in (

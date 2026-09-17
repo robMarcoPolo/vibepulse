@@ -241,6 +241,13 @@ void torget_ui_create(void) {
   lv_obj_t *scr = lv_screen_active();
   lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+  /* The screen is the one object in the tree no bare() ever stripped, so it
+   * still carries the stock theme's scrollbar in AUTO mode. Burn-in drift
+   * translates tg.shift a few pixels; LVGL folds translate into the real
+   * coordinates, so the 480 box then juts past the 480 screen -- genuine
+   * scroll range, which AUTO answers with a grey bar down the edge. Nothing
+   * may ever scroll the screen: apps switch by showing and hiding roots. */
+  lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
   tg.shift = bare(scr);
   lv_obj_set_size(tg.shift, 480, 480);

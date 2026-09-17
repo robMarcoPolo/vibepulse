@@ -57,4 +57,10 @@ def decide(payload, checkout_src, instances, error=None):
     elif age > PANEL_MAX_AGE_S:
         reasons.append(f"panel last served {int(age)}s ago")
 
+    if probe == "probe_held_by_other_instance":
+        reasons.append("another instance holds the probe lock")
+
+    if isinstance(instances, int) and instances > 1:
+        reasons.append(f"{instances} tokenserver processes running")
+
     return (OK if not reasons else DEGRADED), reasons, []

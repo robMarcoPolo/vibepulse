@@ -132,5 +132,30 @@ class DataFlowing(unittest.TestCase):
         self.assertTrue(any("panel" in r for r in reasons))
 
 
+class Instances(unittest.TestCase):
+
+    def test_two_processes_is_degraded(self):
+        state, reasons, _ = mb.decide(payload(), SRC, 2)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertTrue(any("2" in r for r in reasons))
+
+    def test_the_lost_probe_lock_is_degraded(self):
+        # Free and definitive, but one-sided: only the instance that LOST
+        # the lock publishes it, so the pgrep count above is still needed.
+        state, reasons, _ = mb.decide(
+            payload(claudeProbe="probe_held_by_other_instance"), SRC, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertTrue(any("lock" in r for r in reasons))
+
+    def test_one_process_is_ok(self):
+        state, _, _ = mb.decide(payload(), SRC, 1)
+        self.assertEqual(mb.OK, state)
+
+    def test_an_unknown_process_count_does_not_decide_the_state(self):
+        # pgrep failing must not invent a fault.
+        state, _, _ = mb.decide(payload(), SRC, None)
+        self.assertEqual(mb.OK, state)
+
+
 if __name__ == "__main__":
     unittest.main()

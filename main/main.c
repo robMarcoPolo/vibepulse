@@ -66,7 +66,19 @@
 static const char *TAG = "torget";
 
 #define TICK_EVERY_MS 100 /* ~10 Hz: ljusrampen är mjuk, CPU:n sover */
-#define DISPLAY_FLUSH_ROWS 12
+/* Strimlans höjd, och därmed TVÅ saker på en gång: flushens DMA-behov
+ * (rader x 480 x 2) och hur många gånger LVGL går igenom hela objektträdet
+ * per bild. LV_DISPLAY_RENDER_MODE_PARTIAL delar den ogiltiga ytan i
+ * strimlor och kallar refr_area() en gång per strimla (lv_refr.c), och
+ * varje refr_area() vandrar trädet. Tolv rader gav 40 vandringar per
+ * helskärmsbild — mätt på glaset 2026-09-17: 5 FPS vid 100 % CPU, dvs
+ * ~136 cykler per pixel, där en blandning kostar 2-20.
+ *
+ * Taket är internminnet, inte lusten: heap-larmet i tick_cb varnar under
+ * flush x 2. Seriemätning 2026-09-17 gav största DMA-block 53 248 B i vila
+ * och 40 960 B som sämsta sampel, så 20 rader (19 200 B) håller 2,1 x mot
+ * det sämsta. Höj ALDRIG utan en ny mätning — se docs/lessons.md. */
+#define DISPLAY_FLUSH_ROWS 20
 
 /* Nattläge: AMOLED tål mörker bäst av allt, och skärmen står i ett hem.
  * Aktivitet är villkoret, inte klockan: apparna rapporterar liv via

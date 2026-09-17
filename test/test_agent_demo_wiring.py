@@ -43,8 +43,12 @@ assert usage_source.count("tk_agent_monitor_create(root)") == 1
 assert "tk_agent_monitor_create_footer" not in usage_source
 
 # En QSPI-flush måste fortfarande rymmas när TLS tillfälligt fragmenterar
-# internminnet. Tolv rader är 11 520 byte och samma gräns ska styra både
-# SPI-bussen och LVGL-adaptern.
-assert "#define DISPLAY_FLUSH_ROWS 12" in platform_source
+# internminnet, och samma gräns ska styra både SPI-bussen och LVGL-adaptern.
+# Tjugo rader är 19 200 byte: heap-larmet varnar under flush x 2, och
+# seriemätningen 2026-09-17 gav 40 960 B som sämsta DMA-block, alltså 2,1 x
+# marginal. Höjningen från tolv halverade antalet trädvandringar per bild
+# (40 -> 24) — se DISPLAY_FLUSH_ROWS i main.c.
+assert "#define DISPLAY_FLUSH_ROWS 20" in platform_source
+assert 20 * 480 * 2 * 2 <= 40960, "flushen måste rymmas två gånger i sämsta uppmätta DMA-blocket"
 assert ".buffer_height = DISPLAY_FLUSH_ROWS" in platform_source
 assert "BSP_LCD_H_RES * DISPLAY_FLUSH_ROWS" in platform_source

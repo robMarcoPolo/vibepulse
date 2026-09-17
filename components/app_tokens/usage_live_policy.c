@@ -117,3 +117,16 @@ usage_update_mode usage_live_choose_update(bool initialized, bool stale,
   if (new_pct < old_pct) return USAGE_UPDATE_SNAP_BACKWARD;
   return USAGE_UPDATE_DIRECT;
 }
+
+bool usage_flick_page_step(usage_flick flick, int *step) {
+  if (!step) return false;
+  if (flick == USAGE_FLICK_LEFT) {
+    *step = 1;
+    return true;
+  }
+  if (flick == USAGE_FLICK_RIGHT) {
+    *step = -1;
+    return true;
+  }
+  return false;
+}

@@ -211,6 +211,26 @@ static lv_obj_t *label_auto(lv_obj_t *parent, const lv_font_t *font,
   return object;
 }
 
+/* En flick byter sida direkt. Tileviewens eget dragrullande är avstängt
+ * (se usage_screen_create): att dra bilden efter fingret kostar en
+ * helskärmsomritning per bildruta, och panelen orkar ~6,5 i sekunden, så
+ * svepet blev ett par hack i stället för en rörelse. Hoppet ritar samma
+ * pixlar en gång. Beslutet självt ligger i usage_flick_page_step. */
+static void flick_page(lv_event_t *event) {
+  (void)event;
+  lv_indev_t *indev = lv_indev_active();
+  if (!indev) return;
+  lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+  usage_flick flick = dir == LV_DIR_LEFT     ? USAGE_FLICK_LEFT
+                      : dir == LV_DIR_RIGHT  ? USAGE_FLICK_RIGHT
+                      : dir == LV_DIR_TOP    ? USAGE_FLICK_UP
+                      : dir == LV_DIR_BOTTOM ? USAGE_FLICK_DOWN
+                                             : USAGE_FLICK_NONE;
+  int step = 0;
+  if (!usage_flick_page_step(flick, &step)) return;
+  usage_screen_show_view(tk_labs_next_view(usage_screen_current_view(), step));
+}
+
 static void open_launcher(lv_event_t *event) {
   (void)event;
   torget_launcher_open();
@@ -454,6 +474,7 @@ static lv_obj_t *new_tile(int index) {
   lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
   lv_obj_set_style_bg_color(tile, COL_BLACK, 0);
   lv_obj_add_event_cb(tile, open_launcher, LV_EVENT_LONG_PRESSED, NULL);
+  lv_obj_add_event_cb(tile, flick_page, LV_EVENT_GESTURE, NULL);
   ui.tiles[index] = tile;
   return tile;
 }
@@ -1029,6 +1050,12 @@ void usage_screen_create(lv_obj_t *root) {
   ui.tileview = lv_tileview_create(root);
   lv_obj_set_size(ui.tileview, VP_SCREEN_W, VP_SCREEN_H);
   lv_obj_set_scrollbar_mode(ui.tileview, LV_SCROLLBAR_MODE_OFF);
+  /* Inget dragrullande: sidbytet sker på flick (flick_page), inte genom att
+   * bilden följer fingret. Programmatiska hopp går fortfarande igenom —
+   * lv_obj_scroll_to bryr sig inte om flaggan, den gäller bara indev. Och
+   * rutorna förblir SYNLIGA: scrollintervallet räknas ur just de synliga
+   * barnen, så ett göm hade krympt det och klämt fast hoppen. */
+  lv_obj_remove_flag(ui.tileview, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_opa(ui.tileview, LV_OPA_COVER, 0);
   lv_obj_set_style_bg_color(ui.tileview, COL_BLACK, 0);
 

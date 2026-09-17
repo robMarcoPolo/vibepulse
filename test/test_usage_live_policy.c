@@ -241,6 +241,26 @@ int main(void) {
         usage_live_choose_update(true, false, true, true, 20, true, 20) ==
             USAGE_UPDATE_DIRECT);
 
+  /* Flick -> sidsteg. Ett lodrätt svep får ALDRIG bläddra: tummen drar
+   * uppåt på en hylla oftare än den flickar i sidled, och en sida som
+   * byts av misstag ser ut som en bugg i datan, inte i gesten. */
+  int step = 4242;
+  check("flick left pages forward",
+        usage_flick_page_step(USAGE_FLICK_LEFT, &step) && step == 1);
+  check("flick right pages back",
+        usage_flick_page_step(USAGE_FLICK_RIGHT, &step) && step == -1);
+  step = 4242;
+  check("flick up does not page",
+        !usage_flick_page_step(USAGE_FLICK_UP, &step) && step == 4242);
+  check("flick down does not page",
+        !usage_flick_page_step(USAGE_FLICK_DOWN, &step) && step == 4242);
+  check("no flick does not page",
+        !usage_flick_page_step(USAGE_FLICK_NONE, &step) && step == 4242);
+  check("a stray direction does not page",
+        !usage_flick_page_step((usage_flick)99, &step) && step == 4242);
+  check("a null out pointer is refused, not written",
+        !usage_flick_page_step(USAGE_FLICK_LEFT, NULL));
+
   if (!failures) {
     printf("OK: live quota policy tests green\n");
     return 0;

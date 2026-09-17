@@ -51,4 +51,23 @@ usage_update_mode usage_live_choose_update(bool initialized, bool stale,
                                            double old_pct, bool has_new,
                                            double new_pct);
 
+/* En flick byter sida direkt i stället för att dra bilden efter fingret.
+ * Skälet är mätt, inte estetiskt: varje dragbildruta är en helskärmsomritning,
+ * och panelen orkar ~6,5 av dem i sekunden — ett 400 ms svep blir därför
+ * ett par hackiga steg. Ett hopp ritar samma pixlar EN gång.
+ *
+ * Lodräta svep måste vara stumma. En tumme på en hylla drar uppåt oftare
+ * än den flickar i sidled, och en sida som byts av misstag läses som ett
+ * fel i datan, inte i gesten. */
+typedef enum {
+  USAGE_FLICK_NONE = 0,
+  USAGE_FLICK_LEFT,
+  USAGE_FLICK_RIGHT,
+  USAGE_FLICK_UP,
+  USAGE_FLICK_DOWN,
+} usage_flick;
+
+/* true + *step (+1 nästa, -1 föregående) bara för en vågrät flick. */
+bool usage_flick_page_step(usage_flick flick, int *step);
+
 #endif

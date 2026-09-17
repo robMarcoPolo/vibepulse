@@ -1,4 +1,6 @@
+import subprocess
 import unittest
+from unittest.mock import patch
 
 from tools import vibepulse_menubar as mb
 
@@ -69,6 +71,18 @@ class Fingerprint(unittest.TestCase):
         state, reasons, _ = mb.decide(body, SRC, 1)
         self.assertEqual(mb.DEGRADED, state)
         self.assertTrue(reasons)
+
+    def test_a_missing_fingerprint_says_absent_rather_than_none(self):
+        # served_src is None when the key is absent; "None" must never
+        # reach the reason string or the dropdown fingerprint line.
+        body = payload()
+        del body["srcFingerprint"]
+        state, reasons, lines = mb.decide(body, SRC, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertNotIn("None", reasons[0])
+        self.assertIn("absent", reasons[0])
+        self.assertNotIn("None", "\n".join(lines))
+        self.assertIn("fingerprint absent", "\n".join(lines))
 
     def test_an_unreadable_checkout_says_so_rather_than_blaming_the_server(self):
         # checkout_fingerprint() returns None when the import fails; the
@@ -178,6 +192,45 @@ class Rendering(unittest.TestCase):
         out = mb.render(mb.DOWN, ["timeout after 3s"], [])
         self.assertTrue(out.startswith(mb.GLYPH[mb.DOWN]))
         self.assertIn("timeout after 3s", out.split("\n", 1)[0])
+
+
+class _CompletedProcess:
+    """Just enough of subprocess.CompletedProcess for these tests."""
+
+    def __init__(self, returncode, stdout):
+        self.returncode = returncode
+        self.stdout = stdout
+
+
+class CountInstances(unittest.TestCase):
+
+    def test_a_normal_two_line_match_counts_two(self):
+        with patch.object(mb.subprocess, "run",
+                           return_value=_CompletedProcess(0, "111\n222\n")):
+            self.assertEqual(2, mb.count_instances())
+
+    def test_no_matches_is_zero_not_none(self):
+        # pgrep's own convention: returncode 1 means "found nothing",
+        # not an error.
+        with patch.object(mb.subprocess, "run",
+                           return_value=_CompletedProcess(1, "")):
+            self.assertEqual(0, mb.count_instances())
+
+    def test_a_pgrep_error_is_unknown(self):
+        with patch.object(mb.subprocess, "run",
+                           return_value=_CompletedProcess(2, "")):
+            self.assertIsNone(mb.count_instances())
+
+    def test_a_missing_pgrep_binary_is_unknown(self):
+        with patch.object(mb.subprocess, "run",
+                           side_effect=OSError("no such file")):
+            self.assertIsNone(mb.count_instances())
+
+    def test_a_timeout_is_unknown(self):
+        with patch.object(
+                mb.subprocess, "run",
+                side_effect=subprocess.TimeoutExpired(cmd="pgrep", timeout=3)):
+            self.assertIsNone(mb.count_instances())
 
 
 if __name__ == "__main__":

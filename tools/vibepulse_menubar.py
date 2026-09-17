@@ -39,7 +39,7 @@ def decide(payload, checkout_src, instances, error=None):
 
     reasons = []
 
-    served_src = payload.get("srcFingerprint")
+    served_src = payload.get("srcFingerprint") or "absent"
     if checkout_src is None:
         reasons.append("cannot read this checkout's fingerprint")
     elif served_src != checkout_src:
@@ -108,7 +108,7 @@ def count_instances():
     """How many tokenserver.py processes exist, or None if unknown."""
     try:
         found = subprocess.run(
-            ["pgrep", "-f", r"tokenserver\.py"],
+            ["pgrep", "-f", r"[Pp]ython.*tokenserver\.py"],
             capture_output=True, text=True, timeout=TIMEOUT_S, check=False)
     except (OSError, subprocess.SubprocessError):
         return None

@@ -63,6 +63,23 @@ void usage_live_build_header(const tk_agent_provider_status *provider,
   }
 }
 
+bool usage_live_elapsed_marker_px(int window_min, int reset_min,
+                                  int track_width, int *marker_px) {
+  if (!marker_px || window_min <= 0 || track_width <= 0 || reset_min < 0) {
+    return false;
+  }
+  /* The service may report a reset slightly beyond the window's own length —
+   * the statusline bridge allows fifteen minutes of clock slack for exactly
+   * this. Treat that as "the window just began" rather than dropping the
+   * marker, which would make it blink out at every window boundary. */
+  int elapsed_min = window_min - reset_min;
+  if (elapsed_min < 0) elapsed_min = 0;
+  if (elapsed_min > window_min) elapsed_min = window_min;
+  *marker_px = (int)llround((double)elapsed_min * (double)track_width /
+                            (double)window_min);
+  return true;
+}
+
 bool usage_live_build_today_bar(double total_pct, bool has_total,
                                 double today_pct, bool has_today,
                                 int track_width, usage_today_bar_view *out) {
@@ -86,7 +103,6 @@ bool usage_live_build_today_bar(double total_pct, bool has_total,
   out->baseline_px =
       (int)llround((total_pct - today_pct) * (double)track_width / 100.0);
   out->today_px = out->total_px - out->baseline_px;
-  out->marker_x = out->baseline_px;
   return true;
 }
 

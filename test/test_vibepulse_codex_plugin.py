@@ -30,7 +30,14 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / ".agents/plugins/plugins/vibepulse/scripts"
 MAX_HOOK_INPUT = 64 * 1024
-HOST_SOURCE_FINGERPRINT = "e0e425fb9e6b"
+# Stub payloads must look like a MATCHING host, so take the value from the
+# script itself rather than pinning it twice: the real invariant — that the
+# script's pin matches the checked-in tokenserver sources — is asserted by
+# test_plugin_expected_host_fingerprint_matches_checkout. A literal here only
+# meant every tokenserver edit broke seven unrelated startup-health tests.
+HOST_SOURCE_FINGERPRINT = re.search(
+    r'EXPECTED_HOST_SOURCE_FINGERPRINT = "([0-9a-f]{12})"',
+    (SCRIPTS / "session_start.py").read_text(encoding="utf-8")).group(1)
 
 PERMISSION = {
     "hook_event_name": "PermissionRequest",

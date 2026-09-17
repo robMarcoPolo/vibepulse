@@ -52,11 +52,11 @@ static void check_header(const char *what,
 static void check_unavailable_bar(const char *what, double total,
                                   bool has_total, double today,
                                   bool has_today, int width) {
-  usage_today_bar_view view = {true, true, 1, 1, 1, 1};
+  usage_today_bar_view view = {true, true, 1, 1, 1};
   check(what, !usage_live_build_today_bar(total, has_total, today, has_today,
                                           width, &view) &&
                   !view.has_total && !view.has_today && !view.total_px &&
-                  !view.baseline_px && !view.today_px && !view.marker_x);
+                  !view.baseline_px && !view.today_px);
 }
 
 int main(void) {
@@ -145,30 +145,55 @@ int main(void) {
   check("missing total is unavailable",
         !usage_live_build_today_bar(0, false, 0, false, 436, &bar) &&
             !bar.has_total);
+
+  /* The marker answers "how far through the window am I", so it is the
+     window's clock and nothing to do with the quota figure beside it. */
+  {
+    int px = -1;
+    check("half way through the window sits mid-track",
+          usage_live_elapsed_marker_px(300, 150, 436, &px) && px == 218);
+    check("a window that has just reset starts at the left edge",
+          usage_live_elapsed_marker_px(300, 300, 436, &px) && px == 0);
+    check("a window about to reset fills the track",
+          usage_live_elapsed_marker_px(300, 0, 436, &px) && px == 436);
+    check("a seven-day window uses the same rule",
+          usage_live_elapsed_marker_px(10080, 2520, 436, &px) && px == 327);
+    /* The statusline bridge tolerates 15 minutes of clock slack, so a reset
+       beyond the window is expected and must not blink the marker away. */
+    check("a reset beyond the window clamps to the start",
+          usage_live_elapsed_marker_px(300, 340, 436, &px) && px == 0);
+    px = -1;
+    check("an unknown window draws no marker at all",
+          !usage_live_elapsed_marker_px(0, 150, 436, &px) && px == -1);
+    check("a negative remaining is refused, never clamped into a lie",
+          !usage_live_elapsed_marker_px(300, -1, 436, &px));
+    check("a zero-width track draws nothing",
+          !usage_live_elapsed_marker_px(300, 150, 0, &px));
+  }
   check("zero total produces an empty available bar",
         usage_live_build_today_bar(0, true, 0, true, 436, &bar) &&
             bar.has_total && bar.has_today && !bar.total_px &&
-            !bar.baseline_px && !bar.today_px && !bar.marker_x);
+            !bar.baseline_px && !bar.today_px);
   check("nine percent rounds independently",
         usage_live_build_today_bar(9, true, 1, true, 436, &bar) &&
             bar.total_px == 39 && bar.baseline_px == 35 &&
-            bar.today_px == 4 && bar.marker_x == 35);
+            bar.today_px == 4);
   check("seventy-three total and twelve today use the segmented geometry",
         usage_live_build_today_bar(73, true, 12, true, 436, &bar) &&
             bar.total_px == 318 && bar.baseline_px == 266 &&
-            bar.today_px == 52 && bar.marker_x == 266);
+            bar.today_px == 52);
   check("ninety-nine percent preserves a one percent today segment",
         usage_live_build_today_bar(99, true, 1, true, 436, &bar) &&
             bar.total_px == 432 && bar.baseline_px == 427 &&
-            bar.today_px == 5 && bar.marker_x == 427);
+            bar.today_px == 5);
   check("one hundred percent total accepts today twelve",
         usage_live_build_today_bar(100, true, 12, true, 436, &bar) &&
             bar.total_px == 436 && bar.baseline_px == 384 &&
-            bar.today_px == 52 && bar.marker_x == 384);
+            bar.today_px == 52);
   check("missing today retains a single accent fill without marker",
         usage_live_build_today_bar(73, true, 0, false, 436, &bar) &&
             bar.has_total && !bar.has_today && bar.total_px == 318 &&
-            bar.baseline_px == 318 && !bar.today_px && !bar.marker_x);
+            bar.baseline_px == 318 && !bar.today_px);
   check_unavailable_bar("today greater than total is rejected", 9, true, 12,
                         true, 436);
   check_unavailable_bar("negative total is rejected", -1, true, 0, true,

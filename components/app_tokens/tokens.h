@@ -26,7 +26,11 @@ typedef struct {
   double pct;    /* utnyttjande, 0-100 */
   double delta_pct; /* förändring i samma resetcykel */
   int reset_min; /* minuter till fönstret nollas */
-  int has_pct, has_reset, has_delta;
+  /* Fönstrets EGEN längd, som tjänsten namngav det (five_hour, seven_day,
+   * Codex window_minutes) — aldrig en gissning här. has_window = 0 betyder
+   * att tjänsten inte kunde namnge fönstret, och då ritas ingen tidsmarkör. */
+  int window_min;
+  int has_pct, has_reset, has_delta, has_window;
   int stale;     /* 1 när värdet är unexpired last-known-good */
 } tk_limit;
 

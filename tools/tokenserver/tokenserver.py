@@ -2752,6 +2752,12 @@ def get_snapshot(projects_dir: Path, history=None, now_ts=None,
                 observed_at=int(current_ts), label=None)
     result["claudeSessionPct"] = session_pct
     result["claudeSessionResetMin"] = session_reset_min
+    # How long the window IS, so the panel can mark how far through it we are
+    # without assuming a length of its own. Claude names its windows rather
+    # than counting their minutes, so this is the plan contract's fixed
+    # counterpart above -- published only alongside a reading it belongs to.
+    result["claudeSessionWindowMin"] = (
+        None if session_pct is None else MAX_TRACKER_CLAUDE_SESSION_MINUTES)
     # A non-None reading here is a live probe or fresh statusLine result,
     # or that reading lifted to the same window's cached floor -- the
     # honest gate Task 6 requires before anything reaches Max Tracker's
@@ -2780,6 +2786,9 @@ def get_snapshot(projects_dir: Path, history=None, now_ts=None,
     result["claudeWeekPct"] = claude_week["pct"]
     result["claudeWeekResetMin"] = _reset_minutes(
         claude_week["reset_at"], current_ts)
+    result["claudeWeekWindowMin"] = (
+        None if claude_week["pct"] is None
+        else MAX_TRACKER_CLAUDE_WEEK_MINUTES)
     result["claudeWeekObservedAt"] = claude_week.get("observed_at")
     result["claudeWeekStale"] = bool(
         claude_week["pct"] is not None and claude_week["stale"])
@@ -2793,6 +2802,9 @@ def get_snapshot(projects_dir: Path, history=None, now_ts=None,
     result["claudeModelWeekPct"] = claude_model["pct"]
     result["claudeModelWeekResetMin"] = _reset_minutes(
         claude_model["reset_at"], current_ts)
+    result["claudeModelWeekWindowMin"] = (
+        None if claude_model["pct"] is None
+        else MAX_TRACKER_CLAUDE_WEEK_MINUTES)
     result["claudeModelWeekObservedAt"] = claude_model.get("observed_at")
     result["claudeModelWeekLabel"] = claude_model["label"]
     result["claudeModelWeekStale"] = bool(
@@ -2802,6 +2814,8 @@ def get_snapshot(projects_dir: Path, history=None, now_ts=None,
     result["codexWeekPct"] = codex_week["pct"]
     result["codexWeekResetMin"] = _reset_minutes(
         codex_week["reset_at"], current_ts)
+    result["codexWeekWindowMin"] = (
+        None if codex_week["pct"] is None else CODEX_WEEK_MINUTES)
     result["codexWeekObservedAt"] = codex_week.get("observed_at")
     result["codexWeekStale"] = bool(
         codex_week["pct"] is not None and codex_week["stale"])

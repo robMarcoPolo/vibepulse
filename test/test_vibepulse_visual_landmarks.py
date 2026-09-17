@@ -28,6 +28,15 @@ def layout_token(name):
 
 BAR_SOLID_CENTER_Y = layout_token("VP_BAR_Y") + layout_token("VP_BAR_H") // 2
 
+
+def elapsed_marker_x(reset_min, window_min):
+    """Where the bar's white line belongs, derived from the fixture's own
+    figures and the generated layout tokens — never read back off the render,
+    so the assertion proves the placement rather than agreeing with it."""
+    track = layout_token("VP_CONTENT_W")
+    elapsed = max(0, min(window_min, window_min - reset_min))
+    return layout_token("VP_SAFE_X") + round(elapsed * track / window_min) - 1
+
 # Max Tracker grid/legend/pager geometry — mirrors the MT_* #defines and
 # TK_MT_LEGEND_PCTS/CODEX_STOPS tables in components/app_tokens/usage_screen.c
 # and max_tracker_presenter.c. These aren't exposed through the generated
@@ -168,6 +177,8 @@ EXPECTED = {
     "torget-vibepulse-claude-idle.bmp",
     "torget-vibepulse-session-idle.bmp",
     "torget-vibepulse-session-missing.bmp",
+    "torget-vibepulse-session-ahead-of-pace.bmp",
+    "torget-vibepulse-session-behind-pace.bmp",
     "torget-vibepulse-codex-single-working.bmp",
     "torget-vibepulse-codex-multi-chat.bmp",
     "torget-vibepulse-codex-idle.bmp",
@@ -849,15 +860,20 @@ class VibePulseVisualLandmarkTests(unittest.TestCase):
                     "the last value must clear the BACK control")
 
     def test_provider_bars_are_segmented_with_locked_colors_and_marker(self):
+        # The white line is the window's clock: elapsed/window across the
+        # track. sim-fixtures/tokens.json supplies both figures, so the
+        # expected x is computed from them rather than pinned as a constant
+        # that says nothing about why it moved.
         cases = (
             ("torget-vibepulse-claude-fable.bmp", (138, 79, 66),
-             (217, 119, 87), 287),
+             (217, 119, 87), 3120, 10080),
             ("torget-vibepulse-claude-all.bmp", (138, 79, 66),
-             (217, 119, 87), 191),
+             (217, 119, 87), 9120, 10080),
             ("torget-vibepulse-codex-weekly.bmp", (69, 75, 138),
-             (111, 120, 255), 152),
+             (111, 120, 255), 2317, 10080),
         )
-        for name, baseline, accent, marker_start in cases:
+        for name, baseline, accent, reset_min, window_min in cases:
+            marker_start = elapsed_marker_x(reset_min, window_min)
             with self.subTest(name=name):
                 image = self.image(name)
                 row = [
@@ -1085,7 +1101,36 @@ class VibePulseVisualLandmarkTests(unittest.TestCase):
             (24, 40, 364, 367, 68),
         )
 
+    def test_the_bar_reads_as_pace_at_a_glance(self):
+        """Fill past the line means the quota is going faster than the window
+        is passing; fill short of it means slower. That comparison IS the
+        feature, so it is proven on the raster and not inferred from the
+        policy that drew it."""
+        empty = (48, 50, 56)
+        cases = (
+            ("torget-vibepulse-session-ahead-of-pace.bmp", 240, 300, True),
+            ("torget-vibepulse-session-behind-pace.bmp", 60, 300, False),
+        )
+        for name, reset_min, window_min, ahead in cases:
+            with self.subTest(name=name):
+                image = self.image(name)
+                row = [image.getpixel((x, BAR_SOLID_CENTER_Y))
+                       for x in range(480)]
+                marker = elapsed_marker_x(reset_min, window_min)
+                self.assertEqual(row[marker:marker + 3],
+                                 [(255, 255, 255)] * 3)
+                filled = [x for x in range(22, 458)
+                          if row[x] not in (empty, (0, 0, 0), (255, 255, 255))]
+                self.assertTrue(filled, "the bar drew no fill at all")
+                if ahead:
+                    self.assertGreater(max(filled), marker + 2)
+                else:
+                    self.assertLess(max(filled), marker)
+
     def test_endpoint_markers_are_clamped_inside_track(self):
+        """The line marks elapsed/window, so its endpoints are the window's:
+        just-begun sits on the track's first pixels, about-to-reset on its
+        last. Neither may render a pixel outside the track."""
         zero = self.image("torget-vibepulse-claude-zero-total.bmp")
         full = self.image("torget-vibepulse-codex-full-total.bmp")
         zero_row = [

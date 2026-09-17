@@ -63,6 +63,10 @@ static void build_card(usage_card_view *out, usage_card_kind kind,
   memset(out, 0, sizeof *out);
   out->kind = kind;
   out->stale = limit->stale;
+  /* Carry the window verbatim, unknown as unknown — the bar's time marker is
+   * drawn only when the service actually named the window and its reset. */
+  out->window_min = limit->has_window ? limit->window_min : 0;
+  out->reset_min = limit->has_reset ? limit->reset_min : -1;
   snprintf(out->label, sizeof out->label, "%s", label);
   if (limit->has_pct) {
     out->has_pct = 1;

@@ -1167,6 +1167,26 @@ static int run_vibepulse_static_qa(void) {
   dump_frame("vibepulse-session-missing");
   feed_tokens();
 
+  /* The whole point of the time marker is that fill-versus-line reads as
+     pace at a glance, so both readings get a frame: 60 % spent one fifth of
+     the way in (fill well past the line) and 10 % spent four fifths of the
+     way in (fill well short of it). */
+  {
+    tk_tokens pace = {0};
+    pace.claude_session = forecast_limit(60, 240);
+    pace.claude_session.window_min = 300;
+    pace.claude_session.has_window = 1;
+    tokens_apply(&pace);
+    dump_frame("vibepulse-session-ahead-of-pace");
+
+    pace.claude_session = forecast_limit(10, 60);
+    pace.claude_session.window_min = 300;
+    pace.claude_session.has_window = 1;
+    tokens_apply(&pace);
+    dump_frame("vibepulse-session-behind-pace");
+  }
+  feed_tokens();
+
   tokens_show_view(VIEW_CODEX_WEEKLY);
   dump_frame("vibepulse-codex-idle");
 
@@ -1197,16 +1217,24 @@ static int run_vibepulse_static_qa(void) {
   tokens_apply(&bar_case);
   dump_frame("vibepulse-claude-today-contradictory");
 
+  /* Both endpoints of the time marker, so the clamp is proven on the glass
+     and not only in the policy test: a window that has only just begun
+     (reset == window) must put the line on the track's first pixels, and one
+     a minute from resetting on its last — never a pixel outside either. */
   bar_case.claude_model_week = forecast_limit(0, 3120);
   bar_case.claude_model_week.delta_pct = 0;
   bar_case.claude_model_week.has_delta = 1;
+  bar_case.claude_model_week.window_min = 3120;
+  bar_case.claude_model_week.has_window = 1;
   tokens_apply(&bar_case);
   dump_frame("vibepulse-claude-zero-total");
 
   memset(&bar_case, 0, sizeof bar_case);
-  bar_case.codex_week = forecast_limit(100, 2317);
+  bar_case.codex_week = forecast_limit(100, 1);
   bar_case.codex_week.delta_pct = 0;
   bar_case.codex_week.has_delta = 1;
+  bar_case.codex_week.window_min = 10080;
+  bar_case.codex_week.has_window = 1;
   tokens_apply(&bar_case);
   tokens_show_view(VIEW_CODEX_WEEKLY);
   dump_frame("vibepulse-codex-full-total");

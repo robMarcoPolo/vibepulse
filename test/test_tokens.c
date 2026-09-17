@@ -101,6 +101,16 @@ int main(void) {
           && t.claude_session.pct == 21.0
           && t.claude_session.has_reset
           && t.claude_session.reset_min == 256);
+    /* The window's own length, so the panel can say how far through it is
+       without ever assuming how long a window lasts. */
+    check("claude session window", t.claude_session.has_window
+          && t.claude_session.window_min == 300);
+    check("claude week window", t.claude_week.has_window
+          && t.claude_week.window_min == 10080);
+    check("codex week window", t.codex_week.has_window
+          && t.codex_week.window_min == 10080);
+    check("an absent window stays unknown, never assumed",
+          !t.codex_session.has_window && t.codex_session.window_min == 0);
     check("claude vecka", t.claude_week.has_pct && t.claude_week.pct == 47.0
           && t.claude_week.reset_min == 9120);
     check("claude fable-vecka", t.claude_model_week.has_pct

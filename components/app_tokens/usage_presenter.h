@@ -33,6 +33,12 @@ typedef struct {
   char reset_short_text[USAGE_CARD_SHORT_CAP];
   double pct;
   double delta_pct;
+  /* The window the figure belongs to, carried so the bar can mark how far
+   * through it we are. Unknown is carried AS unknown and never as a guess:
+   * window_min 0 means the service could not name the window, reset_min -1
+   * means it reported no reset. Either one means "draw no time marker". */
+  int window_min;
+  int reset_min;
   int has_pct;
   int has_delta;
   int stale;

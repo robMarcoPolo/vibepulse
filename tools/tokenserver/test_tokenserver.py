@@ -670,6 +670,29 @@ class ClaudeStatuslineBridgeTests(unittest.TestCase):
         self.assertIsNone(snapshot["claudeWeekPct"])
         self.assertEqual(persisted, [])
 
+    def test_window_lengths_are_published_only_with_a_reading(self):
+        """The panel marks how far through a window it is, so it must be told
+        the window's length. Claude names its windows rather than counting
+        their minutes, so the published figure is the plan contract's fixed
+        counterpart the Max Tracker already buckets by -- and it is published
+        only when there is a reading it belongs to."""
+        self.write(five=(42.0, self.NOW + 3600),
+                   week=(12.5, self.NOW + 86400))
+        snapshot, _ = self._snapshot()
+        self.assertEqual(snapshot["claudeSessionPct"], 42.0)
+        self.assertEqual(snapshot["claudeSessionWindowMin"],
+                         tokenserver.MAX_TRACKER_CLAUDE_SESSION_MINUTES)
+        self.assertEqual(snapshot["claudeWeekWindowMin"],
+                         tokenserver.MAX_TRACKER_CLAUDE_WEEK_MINUTES)
+
+        # No reading, no window: the panel must not be handed a length it
+        # could draw a marker from when there is nothing to mark.
+        self.write(five=(42.0, self.NOW - 1), week=(12.5, self.NOW - 1))
+        snapshot, _ = self._snapshot()
+        self.assertIsNone(snapshot["claudeSessionPct"])
+        self.assertIsNone(snapshot["claudeSessionWindowMin"])
+        self.assertIsNone(snapshot["claudeWeekWindowMin"])
+
 
 class ClaudeLimitHeaderTests(unittest.TestCase):
     def setUp(self):

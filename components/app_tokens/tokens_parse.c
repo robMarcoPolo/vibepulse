@@ -65,6 +65,25 @@ static bool limit_pair(const cJSON *root, const char *pct_key,
   return true;
 }
 
+/* The window's length is OPTIONAL on the wire: a service that could not name
+ * the window omits it (or sends null), and an older service never sends it at
+ * all. Either way the panel simply has no time marker to draw — it must never
+ * substitute an assumed five hours or seven days of its own. */
+static bool optional_window_min(const cJSON *root, const char *key,
+                                tk_limit *out) {
+  const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, key);
+  if (!item || cJSON_IsNull(item)) return true;
+  if (!cJSON_IsNumber(item)) return false;
+  double value = item->valuedouble;
+  if (!isfinite(value) || value <= 0 || value > INT_MAX ||
+      trunc(value) != value) {
+    return false;
+  }
+  out->window_min = (int)value;
+  out->has_window = 1;
+  return true;
+}
+
 static bool optional_stale(const cJSON *root, const char *key,
                            tk_limit *out) {
   const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, key);
@@ -207,6 +226,9 @@ static bool known_top_level_key(const char *key) {
       "codexForecastPctAtReset", "codexForecastPaceFactor",
       "codexForecastAt", "codexForecastOffsetMin",
       "otaAvailableVersion", "value", "claudeSourcePresent",
+      "claudeSessionWindowMin", "claudeWeekWindowMin",
+      "claudeModelWeekWindowMin", "codexSessionWindowMin",
+      "codexWeekWindowMin",
   };
   for (size_t index = 0; index < sizeof keys / sizeof keys[0]; index++) {
     if (strcmp(key, keys[index]) == 0) return true;
@@ -434,6 +456,17 @@ bool tk_tokens_parse(const char *json, size_t len, tk_tokens *out) {
                   &t.codex_session)) goto done;
   if (!limit_pair(root, "codexWeekPct", "codexWeekResetMin",
                   &t.codex_week)) goto done;
+
+  if (!optional_window_min(root, "claudeSessionWindowMin",
+                           &t.claude_session)) goto done;
+  if (!optional_window_min(root, "claudeWeekWindowMin",
+                           &t.claude_week)) goto done;
+  if (!optional_window_min(root, "claudeModelWeekWindowMin",
+                           &t.claude_model_week)) goto done;
+  if (!optional_window_min(root, "codexSessionWindowMin",
+                           &t.codex_session)) goto done;
+  if (!optional_window_min(root, "codexWeekWindowMin",
+                           &t.codex_week)) goto done;
 
   if (!optional_stale(root, "claudeWeekStale", &t.claude_week)) goto done;
   if (!optional_stale(root, "claudeModelWeekStale",

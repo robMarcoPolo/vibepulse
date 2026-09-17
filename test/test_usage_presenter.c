@@ -60,8 +60,32 @@ int main(void) {
   check("cached Fable keeps trusted label",
         strcmp(page.quota.label, "FABLE · WEEK") == 0);
 
+  tokens.claude_session.window_min = 300;
+  tokens.claude_session.has_window = 1;
   usage_presenter_build_quota_page(&tokens, USAGE_QUOTA_CLAUDE_SESSION,
                                    &page);
+  /* The card carries the window so the bar can place a time marker without
+     the screen ever knowing how long a session lasts. Unknown is carried as
+     unknown: window 0 and reset -1 both mean "draw no marker". */
+  check("the card carries the window's own length",
+        page.quota.window_min == 300 && page.quota.reset_min == 80);
+  {
+    tk_tokens no_window = tokens;
+    no_window.claude_session.has_window = 0;
+    usage_quota_page_view unknown = {0};
+    usage_presenter_build_quota_page(&no_window, USAGE_QUOTA_CLAUDE_SESSION,
+                                     &unknown);
+    check("an unnamed window is carried as unknown, not as a guess",
+          unknown.quota.window_min == 0);
+  }
+  {
+    tk_tokens no_reset = {0};
+    usage_quota_page_view blank = {0};
+    usage_presenter_build_quota_page(&no_reset, USAGE_QUOTA_CLAUDE_SESSION,
+                                     &blank);
+    check("a missing reset is carried as unknown, never as zero minutes left",
+          blank.quota.reset_min == -1);
+  }
   check("session page reads the five-hour window",
         page.provider == USAGE_PROVIDER_CLAUDE &&
         page.quota.kind == USAGE_CARD_FIVE_HOURS &&

@@ -17,8 +17,18 @@ typedef struct {
   int total_px;
   int baseline_px;
   int today_px;
-  int marker_x;
 } usage_today_bar_view;
+
+/* The bar's white line is the WINDOW'S OWN CLOCK, not a usage figure: it sits
+ * at elapsed/window across the track, so fill left of it means the quota is
+ * being spent slower than the window is passing, and fill right of it means
+ * faster. Returns false — draw nothing — when the window length is unknown,
+ * which is the honest answer whenever the service could not name the window.
+ * A reset further out than the window (host/API clock skew, which the
+ * statusline bridge explicitly tolerates) clamps to the window's start rather
+ * than blinking the marker away. */
+bool usage_live_elapsed_marker_px(int window_min, int reset_min,
+                                  int track_width, int *marker_px);
 
 typedef enum {
   USAGE_UPDATE_DIRECT,

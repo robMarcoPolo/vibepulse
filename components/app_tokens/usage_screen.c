@@ -821,12 +821,19 @@ static bool apply_today_bar(quota_page *page,
                    !available ? 0 : bar.has_today ? bar.today_px
                                                   : bar.total_px);
 
-  if (!available || !bar.has_today) {
+  /* The marker is the window's clock, not the usage split: it no longer
+   * depends on there being a delta segment, only on the service having named
+   * the window and its reset. Fill left of the line means the quota is being
+   * spent slower than the window is passing; right of it means faster. */
+  int marker_px = 0;
+  if (!available ||
+      !usage_live_elapsed_marker_px(quota->window_min, quota->reset_min,
+                                    VP_CONTENT_W, &marker_px)) {
     lv_obj_add_flag(page->marker, LV_OBJ_FLAG_HIDDEN);
     return available;
   }
 
-  int marker_x = VP_SAFE_X + bar.marker_x - 1;
+  int marker_x = VP_SAFE_X + marker_px - 1;
   if (marker_x < VP_SAFE_X) marker_x = VP_SAFE_X;
   if (marker_x > VP_SAFE_X + VP_CONTENT_W - 3)
     marker_x = VP_SAFE_X + VP_CONTENT_W - 3;

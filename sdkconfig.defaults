@@ -25,6 +25,14 @@ CONFIG_SPIRAM_RODATA=y
 # fastnade i låst render. Reverterat. Roten är LVGL:s 96 KB-pool i internt BSS;
 # rätt fix mäts fram i diag-heartbeaten innan den sätts.)
 
+# LVGL:s mjukvarurenderare är CPU-taket för svepet, inte QSPI-bussen: mätt
+# på glaset 2026-09-17 gav svepet 5 FPS vid 100 % CPU, och 100 % CPU betyder
+# att den räknar, inte att den väntar på DMA. IDF:s standard är -Og, och den
+# ärvdes av alla 885 LVGL-filerna — blendningsslingorna byggdes alltså
+# ooptimerade. -O2 rör inte internt RAM (koden bor i flash/PSRAM), och
+# assertions har en egen knapp som står kvar påslagen.
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 CONFIG_FREERTOS_HZ=1000
 

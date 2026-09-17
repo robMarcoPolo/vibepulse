@@ -79,5 +79,58 @@ class Fingerprint(unittest.TestCase):
         self.assertNotIn("None", reasons[0])
 
 
+BACKOFF = "usage_http_429 + backoff_until_09:12"
+
+
+class DataFlowing(unittest.TestCase):
+
+    def test_a_429_is_healthy_while_the_bridge_covers(self):
+        # Captured 2026-09-17: the probe rate-limited, the bridge feeding,
+        # session and week both live. The system working as designed.
+        state, reasons, _ = mb.decide(payload(claudeProbe=BACKOFF), SRC, 1)
+        self.assertEqual(mb.OK, state)
+        self.assertEqual([], reasons)
+
+    def test_a_429_without_the_bridge_is_degraded(self):
+        # Captured 2026-09-16: probe resting, no bridge, blank session and
+        # a 102-minute-old model week on the panel.
+        body = payload(
+            claudeProbe=BACKOFF,
+            claudeStatusline={"status": "not_installed", "ageS": None,
+                              "bridged": False, "account": "assumed-single"})
+        state, reasons, _ = mb.decide(body, SRC, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertTrue(any("429" in r for r in reasons))
+
+    def test_a_broken_bridge_is_degraded_even_with_a_healthy_probe(self):
+        for status in ("missing", "unreadable", "invalid"):
+            with self.subTest(status=status):
+                body = payload(claudeStatusline={
+                    "status": status, "bridged": False})
+                state, reasons, _ = mb.decide(body, SRC, 1)
+                self.assertEqual(mb.DEGRADED, state)
+                self.assertTrue(any(status in r for r in reasons))
+
+    def test_a_stale_panel_is_degraded_at_the_threshold(self):
+        body = payload(interactions={"panel": {
+            "status": "ready", "ageS": mb.PANEL_MAX_AGE_S + 1}})
+        state, reasons, _ = mb.decide(body, SRC, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertTrue(any("panel" in r for r in reasons))
+
+    def test_a_panel_age_at_the_threshold_is_still_ok(self):
+        body = payload(interactions={"panel": {
+            "status": "ready", "ageS": mb.PANEL_MAX_AGE_S}})
+        state, _, _ = mb.decide(body, SRC, 1)
+        self.assertEqual(mb.OK, state)
+
+    def test_an_absent_panel_age_is_degraded(self):
+        body = payload(interactions={"panel": {"status": "warming",
+                                               "ageS": None}})
+        state, reasons, _ = mb.decide(body, SRC, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertTrue(any("panel" in r for r in reasons))
+
+
 if __name__ == "__main__":
     unittest.main()

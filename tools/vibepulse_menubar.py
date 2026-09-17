@@ -36,4 +36,25 @@ def decide(payload, checkout_src, instances, error=None):
             f"running code differs from this checkout "
             f"({served_src} != {checkout_src})")
 
+    probe = payload.get("claudeProbe") or "unknown"
+    statusline = payload.get("claudeStatusline") or {}
+    bridged = bool(statusline.get("bridged"))
+    bridge_status = statusline.get("status")
+
+    # A rate-limited probe is not a fault while the statusLine bridge is
+    # covering: session and general week then come from Claude Code's own
+    # sample with no upstream call. Only the model week is probe-only.
+    if not probe.startswith("usage_http_200") and not bridged:
+        reasons.append(f"probe {probe}, bridge not covering")
+
+    if bridge_status in ("missing", "unreadable", "invalid"):
+        reasons.append(f"statusLine bridge {bridge_status}")
+
+    panel = (payload.get("interactions") or {}).get("panel") or {}
+    age = panel.get("ageS")
+    if not isinstance(age, (int, float)) or isinstance(age, bool):
+        reasons.append("panel never contacted")
+    elif age > PANEL_MAX_AGE_S:
+        reasons.append(f"panel last served {int(age)}s ago")
+
     return (OK if not reasons else DEGRADED), reasons, []

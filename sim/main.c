@@ -1116,6 +1116,92 @@ static void capture_global_wifi_matrix(void) {
 #endif
 }
 
+/* ---- syntetisk pekare: bänken ska kunna BEVISA en gest, inte fråga ----
+ *
+ * Flickens första försök landade dött på glaset: LVGL bubblar gesten uppåt
+ * så länge objektet har LV_OBJ_FLAG_GESTURE_BUBBLE, och den flaggan sätts
+ * som standard på varje objekt som har en förälder (lv_obj.c). Gesten gick
+ * därför hela vägen till skärmen och rutans handler fick aldrig något.
+ * Ett källtest hade inte sett det — bara en riktig gest gör det. */
+static struct { int32_t x, y, dx, dy, steps; bool pressed; } sim_touch;
+
+/* Rörelsen sker i AVLÄSNINGEN, inte mellan avläsningarna. LVGL nollställer
+ * gestsumman så fort en avläsning rör sig mindre än min-velocity (3 px), så
+ * en pekare som står still mellan stegen når aldrig 50 px-gränsen — den
+ * summan hann återställas varje gång. Det var harnesset som var trasigt,
+ * inte gesten. */
+static void sim_touch_read(lv_indev_t *indev, lv_indev_data_t *data) {
+  (void)indev;
+  data->point.x = sim_touch.x;
+  data->point.y = sim_touch.y;
+  data->state = sim_touch.pressed ? LV_INDEV_STATE_PRESSED
+                                  : LV_INDEV_STATE_RELEASED;
+  if (sim_touch.pressed && sim_touch.steps > 0) {
+    sim_touch.x += sim_touch.dx;
+    sim_touch.y += sim_touch.dy;
+    sim_touch.steps--;
+  }
+}
+
+static void sim_touch_create(void) {
+  lv_indev_t *indev = lv_indev_create();
+  lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
+  lv_indev_set_read_cb(indev, sim_touch_read);
+}
+
+/* Tio steg om 20 px passerar gestgränsen 50 med marginal, och varje steg
+ * ligger över min-velocity 3. */
+static void sim_flick(int dx, int dy) {
+  sim_touch.x = 240;
+  sim_touch.y = 240;
+  sim_touch.dx = dx;
+  sim_touch.dy = dy;
+  sim_touch.steps = 10;
+  sim_touch.pressed = true;
+  pump_ms(400);
+  sim_touch.pressed = false;
+  sim_touch.steps = 0;
+  pump_ms(200);
+}
+
+static void expect_view(const char *what, int actual, int wanted) {
+  if (actual == wanted) return;
+  printf("FAIL %s: vy %d, väntade %d\n", what, actual, wanted);
+  capture_failures++;
+}
+
+static void check_flick_navigation(void) {
+  torget_app_show(SIM_APP_VIBEPULSE);
+  feed_tokens();
+  tokens_show_view(VIEW_CLAUDE_FABLE);
+  pump_ms(80);
+
+  int start = usage_screen_current_view();
+  int next = tk_labs_next_view(start, 1);
+  int prev = tk_labs_next_view(start, -1);
+
+  sim_flick(-20, 0);
+  expect_view("flick vänster bläddrar framåt", usage_screen_current_view(),
+              next);
+
+  sim_flick(20, 0);
+  expect_view("flick höger bläddrar tillbaka", usage_screen_current_view(),
+              start);
+
+  sim_flick(20, 0);
+  expect_view("flick höger igen från början", usage_screen_current_view(),
+              prev);
+
+  tokens_show_view(VIEW_CLAUDE_FABLE);
+  pump_ms(80);
+  sim_flick(0, -20);
+  expect_view("lodrätt svep bläddrar inte", usage_screen_current_view(),
+              start);
+  sim_flick(0, 20);
+  expect_view("lodrätt svep nedåt bläddrar inte",
+              usage_screen_current_view(), start);
+}
+
 static void capture_wifi_drift_matrix(void) {
   static const char *tags[5] = {
       "wifi-drift-0", "wifi-drift-1", "wifi-drift-2",
@@ -1137,6 +1223,7 @@ static void capture_wifi_drift_matrix(void) {
 
 static int run_vibepulse_static_qa(void) {
   capture_failures = 0;
+  sim_touch_create();
   torget_wifi_status_set_mode(TG_WIFI_STATUS_NORMAL);
   torget_wifi_status_foreground();
   torget_app_show(SIM_APP_VIBEPULSE);
@@ -1700,6 +1787,8 @@ static int run_vibepulse_static_qa(void) {
   value_solo.value.multiple = 1.40;
   tokens_apply(&value_solo);
   dump_frame("vibepulse-value-solo");
+
+  check_flick_navigation();
 
   capture_wifi_drift_matrix();
   capture_global_wifi_matrix();

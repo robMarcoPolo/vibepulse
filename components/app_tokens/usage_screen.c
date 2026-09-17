@@ -474,6 +474,11 @@ static lv_obj_t *new_tile(int index) {
   lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
   lv_obj_set_style_bg_color(tile, COL_BLACK, 0);
   lv_obj_add_event_cb(tile, open_launcher, LV_EVENT_LONG_PRESSED, NULL);
+  /* LVGL bubblar gesten uppåt så länge objektet har GESTURE_BUBBLE, och
+   * lv_obj sätter den på ALLT som har en förälder (lv_obj.c). Utan detta
+   * går flicken rutan -> tileview -> rot -> drift -> skärmen, och rutans
+   * handler får aldrig något — panelen såg helt död ut på svep. */
+  lv_obj_remove_flag(tile, LV_OBJ_FLAG_GESTURE_BUBBLE);
   lv_obj_add_event_cb(tile, flick_page, LV_EVENT_GESTURE, NULL);
   ui.tiles[index] = tile;
   return tile;

@@ -617,8 +617,22 @@ Expected: three or more lines, the first beginning with `●`, `◐` or `○`, t
 
 Then confirm it stays honest when the server is unreachable:
 
-Run: `python3 -c "import tools.vibepulse_menubar as m; print(m.render(*m.decide(*m.fetch('http://127.0.0.1:9/'), 'x', 1)))"`
-Expected: a `○` title naming a connection error — not a traceback.
+Run:
+
+```bash
+python3 - <<'PYEOF'
+import tools.vibepulse_menubar as m
+payload, error = m.fetch("http://127.0.0.1:9/")
+print(m.render(*m.decide(payload, "x", 1, error=error)))
+PYEOF
+```
+
+Expected: a `○` title naming a connection error — not a traceback. For example:
+`○ URLError: <urlopen error [Errno 61] Connection refused>`
+
+(The `error` argument must be passed by keyword. `decide(*m.fetch(url), 'x', 1)`
+looks equivalent but lands `'x'` and `1` on `checkout_src` and `instances`,
+putting the error string in the wrong slot and printing `○ 1`.)
 
 - [ ] **Step 5: Lint and commit**
 

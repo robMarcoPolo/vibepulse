@@ -25,4 +25,15 @@ def decide(payload, checkout_src, instances, error=None):
         return DOWN, [error], []
     if not isinstance(payload, dict):
         return DOWN, ["unparseable response body"], []
-    return OK, [], []
+
+    reasons = []
+
+    served_src = payload.get("srcFingerprint")
+    if checkout_src is None:
+        reasons.append("cannot read this checkout's fingerprint")
+    elif served_src != checkout_src:
+        reasons.append(
+            f"running code differs from this checkout "
+            f"({served_src} != {checkout_src})")
+
+    return (OK if not reasons else DEGRADED), reasons, []

@@ -47,5 +47,37 @@ class DownStates(unittest.TestCase):
         self.assertEqual([], reasons)
 
 
+class Fingerprint(unittest.TestCase):
+
+    def test_a_differing_fingerprint_is_degraded(self):
+        state, reasons, _ = mb.decide(
+            payload(srcFingerprint="19442f38b93f"), SRC, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertIn("19442f38b93f", reasons[0])
+        self.assertIn(SRC, reasons[0])
+
+    def test_rev_alone_never_decides_the_state(self):
+        # rev moves on every firmware commit while the tokenserver's own
+        # sources are untouched; only the fingerprint may colour the glyph.
+        state, reasons, _ = mb.decide(payload(rev="97110b6"), SRC, 1)
+        self.assertEqual(mb.OK, state)
+        self.assertEqual([], reasons)
+
+    def test_a_missing_fingerprint_is_degraded(self):
+        body = payload()
+        del body["srcFingerprint"]
+        state, reasons, _ = mb.decide(body, SRC, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertTrue(reasons)
+
+    def test_an_unreadable_checkout_says_so_rather_than_blaming_the_server(self):
+        # checkout_fingerprint() returns None when the import fails; the
+        # reason must name that, not read "e0e425fb9e6b != None".
+        state, reasons, _ = mb.decide(payload(), None, 1)
+        self.assertEqual(mb.DEGRADED, state)
+        self.assertIn("checkout", reasons[0])
+        self.assertNotIn("None", reasons[0])
+
+
 if __name__ == "__main__":
     unittest.main()

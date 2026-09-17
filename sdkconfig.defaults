@@ -108,3 +108,16 @@ CONFIG_LV_MEM_SIZE_KILOBYTES=256
 CONFIG_UAC_SAMPLE_RATE=16000
 CONFIG_UAC_SUPPORT_MACOS=y
 CONFIG_UAC_TUSB_PRODUCT="Vibbe"
+
+# DIAGNOSTIK (tillfällig, ta bort igen): LVGL:s inbyggda FPS/CPU-etikett.
+# Panelens enda logg är USB-seriell och överlever ingenting, så en mätning
+# som skickas över luften aldrig når hit — etiketten ritas i stället på
+# glaset och läses av med ögat. Mäter rätt sak: LVGL:s refreshtakt räknar
+# in väntan på flushen, och det är flushen som är taket (480x480x2 = 461 kB
+# per bild, 20 MB/s över QSPI vid 40 MHz = 23 ms innan en pixel ritats).
+# Nedre mitten: hörnen är klippta på glaset, mitten är svart yta.
+# PERF_MONITOR ligger inuti `if LV_USE_SYSMON` — utan föräldern
+# tappas nyckeln tyst och sdkconfig blir oförändrad.
+CONFIG_LV_USE_SYSMON=y
+CONFIG_LV_USE_PERF_MONITOR=y
+CONFIG_LV_PERF_MONITOR_ALIGN_BOTTOM_MID=y
